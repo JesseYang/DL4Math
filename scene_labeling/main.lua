@@ -15,7 +15,7 @@ criterion = nn.ClassNLLCriterion()
 
 -- Prepare the data
 load_training_data()
--- load_test_data()
+load_test_data()
 
 function plotTrainResult(img_idx, show_pixel_err)
 	ori_imgs_type = ori_imgs_train
