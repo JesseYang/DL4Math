@@ -71,7 +71,7 @@ function load_data()
 		type_idx_ary[i] = i
 	end
 
-	print("Finish loading training data set.")
+	print("Finish loading " .. type_str .. " data set.")
 end
 
 function load_training_data()
