@@ -128,11 +128,6 @@ function nextSample()
 	for i = 1, width - window + 1, stride do
 		inputTable[1 + (i - 1) / stride] = img:sub(1, 1, 1, height, i, i + window - 1)
 	end
-	-- return inputTable, label
-	local temp = { }
-	for i = 1, 50 do
-		temp[i] = inputTable[i]
-	end
 	return inputTable, label
 end
 

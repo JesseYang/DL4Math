@@ -52,9 +52,11 @@ sgd_params = {
 	momentum = 0
 }
 
+iteration = 1
 function train(num)
 	for i = 1,num do
 		x, f = optim.sgd(feval, x, config)
-		print(f[1])
+		print("loss for iteration " .. iteration .. " is: " .. f[1])
+		iteration = iteration + 1
 	end
 end
