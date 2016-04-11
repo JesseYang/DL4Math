@@ -1,5 +1,9 @@
 require 'torch'
 require 'nn'
+if (use_cuda) then
+	require 'cutorch'
+	require 'cunn'
+end
 require 'nnx'
 require 'my_sequencer'
 require 'optim'
@@ -7,10 +11,12 @@ require 'rnn'
 require 'model'
 require 'data'
 
+
 -- model_0()
 model_1()
-s = nn.Sequencer(m)
-c = nn.CTCCriterion()
+s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
+-- c = nn.CTCCriterion()
 
 -- Prepare the data
 load_training_data()
@@ -28,7 +34,8 @@ feval = function(x_new)
 	-- forward of model
 	outputTable = s:forward(inputTable)
 	-- change the format of output of the nn.Sequencer to match the format of input of CTCCriterion
-	pred = torch.Tensor(1, table.getn(inputTable), klass)
+	local input_size = table.getn(inputTable)
+	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
 	for i = 1, table.getn(inputTable) do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 	end

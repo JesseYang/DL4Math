@@ -126,7 +126,9 @@ function nextSample()
 
 	local inputTable = { }
 	for i = 1, width - window + 1, stride do
-		inputTable[1 + (i - 1) / stride] = img:sub(1, 1, 1, height, i, i + window - 1)
+		inputTable[1 + (i - 1) / stride] = use_cuda and 
+			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
+			img:sub(1, 1, 1, height, i, i + window - 1)
 	end
 	return inputTable, label
 end
