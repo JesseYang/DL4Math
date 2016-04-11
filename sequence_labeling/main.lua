@@ -46,7 +46,7 @@ end
 
 -- sgd parameters
 sgd_params = {
-	learningRate = 1e-6,
+	learningRate = 1e-4,
 	learningRateDecay = 0,
 	weightDecay = 0,
 	momentum = 0
