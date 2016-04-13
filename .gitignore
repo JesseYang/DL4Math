@@ -1,3 +1,6 @@
 mdlstm
 scene_labeling/results
 feature_extractor
+data
+preprocess/300dpi
+preprocess/300dpi_binary
