@@ -68,7 +68,7 @@ function plotResult(img_idx, show_pixel_err)
 							end
 						end
 						err_i[1][(length+1)/2][(length+1)/2] = 255
-						image.display(err_i, 10)
+						image.display(err_i, 3)
 						print("******************** Error Pixel. Location: (" .. y .. ", " .. x .. ") ********************")
 						for k = 1,klass do
 							if (label_imgs_type[img_idx][y][x] == k) then
