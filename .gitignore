@@ -3,4 +3,6 @@ scene_labeling/results
 feature_extractor
 data
 preprocess/300dpi
+preprocess/300dpi_bak
 preprocess/300dpi_binary
+preprocess/300dpi_binary_bak
