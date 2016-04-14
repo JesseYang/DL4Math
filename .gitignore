@@ -6,3 +6,6 @@ preprocess/300dpi
 preprocess/300dpi_bak
 preprocess/300dpi_binary
 preprocess/300dpi_binary_bak
+preprocess/150dpi
+preprocess/150dpi_binary
+preprocess/*.jpg
