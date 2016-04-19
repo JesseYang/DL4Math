@@ -2,9 +2,14 @@ require 'torch'
 require 'nn'
 require 'nnx'
 
+klass = 5
+-- 1. normal pixels
+-- 2. equal top
+-- 3. equal bottom
+-- 4. fraction
+-- 5. noise
 
 function model_1()
-	klass = 8
 	ksize = 3
 	length = 27
 	pad = (length - 1) / 2
@@ -27,7 +32,6 @@ function model_1()
 end
 
 function model_2()
-	klass = 8
 	length = 45
 	pad = (length - 1) / 2
 
@@ -49,7 +53,6 @@ function model_2()
 end
 
 function model_3()
-	klass = 8
 	ksize = 3
 	length = 81
 	pad = (length - 1) / 2
@@ -79,7 +82,6 @@ function model_3()
 end
 
 function model_4()
-	klass = 8
 	ksize = 3
 	length = 55
 	pad = (length - 1) / 2

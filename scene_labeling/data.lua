@@ -21,7 +21,8 @@ function load_data()
 
 	for label_filename in lfs.dir(type_str .. "_set/labels") do
 		if (label_filename ~= "." and label_filename ~= "..") then
-			local uuid = mysplit(label_filename, "_")[1]
+			local temp_idx = string.find(label_filename, "_label") - 1
+			local uuid = label_filename:sub(1, temp_idx)
 			local image_filename = uuid .. "_gray.dat"
 			local spec_filename = uuid .. ".txt"
 
