@@ -13,3 +13,4 @@ binarize/150dpi
 binarize/150dpi_binary
 binarize/*.jpg
 line_extraction/data_set
+line_extraction/water_imgs

@@ -3,6 +3,7 @@ cv = require 'cv'
 require 'cv.imgproc'
 require 'cv.imgcodecs'
 require 'cv.highgui'
+require 'nn'
 require 'lfs'
 require 'util'
 require 'image'
@@ -109,7 +110,7 @@ function line_extraction_2(im_bw, im_bw_for_blur, filename)
 			end
 		end
 	end
-	cv.imwrite { filename .. "_water.jpg", im_bw_water }
+	cv.imwrite { "water_imgs/" .. filename .. "_water.jpg", im_bw_water }
 	return im_for_label
 end
 
@@ -317,14 +318,28 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 		end
 		-- print(normal_lines_after_combine)
 
+
+		local m = nn.Sequential()
+		m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
 		final_lines = { }
+		final_line_locations = { }
+		final_lines_local = { }
 		for c = 1, table.getn(normal_lines_after_combine) do
 			local temp = lines[normal_lines_after_combine[c][1]]
 			for i = 2, table.getn(normal_lines_after_combine[c]) do
 				temp = cv.addWeighted{temp, 0.5, lines[normal_lines_after_combine[c][i]], 0.5, 0}
 			end
 			final_lines[c] = 255 - torch.ne(temp, 0) * 255
-			cv.imshow{"final_line", final_lines[c]}
+			local rect = cv.boundingRect{temp}
+			print(final_lines[c]:size())
+			print(rect.x)
+			print(rect.x + rect.width)
+			print(rect.y)
+			print(rect.y + rect.height)
+			final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
+			final_lines_local[c] = m:forward(final_lines_local[c])
+			final_line_locations[c] = rect
+			cv.imshow{"final_line", final_lines_local[c]}
 			cv.waitKey {0}
 		end
 	end
