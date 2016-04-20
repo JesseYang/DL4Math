@@ -116,10 +116,8 @@ end
 
 function load_label_img(label_filename)
 	local pad = 10
-	local temp_idx = string.find(label_filename, "_label") - 1
-	local uuid = label_filename:sub(1, temp_idx)
-	local image_filename = uuid .. "_gray.dat"
-	local spec_filename = uuid .. ".txt"
+	local image_filename = filename_prefix .. "_gray.dat"
+	local spec_filename = filename_prefix .. ".txt"
 
 	local label_file = assert(io.open("data_set/labels/" .. label_filename, "r"))
 	local image_file = assert(io.open("data_set/images/" .. image_filename, "r"))
@@ -207,6 +205,8 @@ fraction_dilate_size = 21
 for label_filename in lfs.dir(data_path .. "labels/") do
 	if (label_filename ~= "." and label_filename ~= "..") then
 		print(label_filename)
+		local temp_idx = string.find(label_filename, "_label") - 1
+		filename_prefix = label_filename:sub(1, temp_idx)
 
 		-- the input of one image includes { original image, top equal sub-image, bottom equal sub-image, fraction sub-image }
 		load_label_img(label_filename)
@@ -229,14 +229,12 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 		dilate_thresh_img = dilate_img:clone()
 		cv.threshold{dilate_img, dilate_thresh_img, 250, 255, cv.THRESH_BINARY}
 		local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, label_filename)
-		cv.imshow{"label", dilate_thresh_img}
-		cv.waitKey {0}
+		-- cv.imshow{"label", dilate_thresh_img}
+		-- cv.waitKey {0}
 
 		-- labeling the results
 		local line_label_img = torch.IntTensor(dilate_thresh_img:size())
 		local label_num = cv.connectedComponents{for_line_label_img, line_label_img, 4}
-
-		-- print(label_num)
 
 		line_label_img = line_label_img:byte()
 		rects = { }
@@ -247,11 +245,8 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 			cur_line = cv.addWeighted{cur_line_label_img, 0.5, ori_img, 0.5, 0}
 			cur_line = torch.eq(cur_line, 0)
 			lines[i] = cur_line * 255
-			-- cv.imshow{"line", 255 - cur_line * 255}
-			-- cv.waitKey {0}
 			rects[i] = cv.boundingRect{cur_line}
 			non_zero_num[i] = torch.nonzero(cur_line):size()[1]
-			-- print(non_zero_num[i] .. ": " .. rects[i].x .. " " .. rects[i].y .. " " .. rects[i].width .. " " .. rects[i].height)
 		end
 
 		-- combine lines
@@ -316,8 +311,6 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 				end
 			end
 		end
-		-- print(normal_lines_after_combine)
-
 
 		local m = nn.Sequential()
 		m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
@@ -331,16 +324,13 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 			end
 			final_lines[c] = 255 - torch.ne(temp, 0) * 255
 			local rect = cv.boundingRect{temp}
-			print(final_lines[c]:size())
-			print(rect.x)
-			print(rect.x + rect.width)
-			print(rect.y)
-			print(rect.y + rect.height)
 			final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
 			final_lines_local[c] = m:forward(final_lines_local[c])
 			final_line_locations[c] = rect
-			cv.imshow{"final_line", final_lines_local[c]}
-			cv.waitKey {0}
+			-- cv.imshow{"final_line", final_lines_local[c]}
+			-- cv.waitKey {0}
+			lfs.mkdir("lines/" .. filename_prefix)
+			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
 		end
 	end
 end
