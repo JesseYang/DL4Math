@@ -1,5 +1,6 @@
 mdlstm
 scene_labeling/results
+scene_labeling/models
 scene_labeling/training_set
 scene_labeling/test_set
 equation_data

@@ -8,6 +8,30 @@ require 'lfs'
 train_mean = 0
 
 function output_pred_on_test_set()
+	-- use the model to predict the output of the test images, and save for the usage of the line extraction app
+	for img_idx = 1, table.getn(imgs_test) do
+		local img = imgs_test[img_idx]
+		local ori_img = ori_imgs_test[img_idx]
+		local s = img:size()
+		local height = s[2]
+		local width = s[3]
+		local result = torch.zeros(3, height, width)
+		local label_file = assert(io.open("results/" .. filename_prefix .. "_label.dat", "w"))
+		for x = 1, width do
+			for y = 1, height do
+				if (ori_img[1][y][x] ~= 255) then
+					local i = use_cuda and
+						img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2):cuda() or
+						img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2)
+					score = m:forward(i)
+					local m_t, m_i = torch.max(score, 1)
+					label_file:write(m_i[1])
+				else
+					label_file:write(0)
+				end
+			end
+		end
+	end
 end
 
 function load_data()

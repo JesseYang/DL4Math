@@ -239,12 +239,12 @@ function train_epoch(epoch_num)
 		-- test_err_rate[epoch] = calTestErrRate()
 
 		-- save the model file
-		torch.save("results/" .. epoch .. ".mdl", m)
+		torch.save("models/" .. epoch .. ".mdl", m)
 	end
 end
 
 function load_model(model_idx)
-	m = torch.load("results/" .. model_idx .. ".mdl")
+	m = torch.load("models/" .. model_idx .. ".mdl")
 	x, dl_dx = m:getParameters()
 	epoch = model_idx
 	train_idx = 1
