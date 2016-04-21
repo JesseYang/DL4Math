@@ -7,6 +7,9 @@ require 'lfs'
 
 train_mean = 0
 
+function output_pred_on_test_set()
+end
+
 function load_data()
 	local imgs_type_idx = 1
 	local type_idx = 1
@@ -22,9 +25,9 @@ function load_data()
 	for label_filename in lfs.dir(type_str .. "_set/labels") do
 		if (label_filename ~= "." and label_filename ~= "..") then
 			local temp_idx = string.find(label_filename, "_label") - 1
-			local uuid = label_filename:sub(1, temp_idx)
-			local image_filename = uuid .. "_gray.dat"
-			local spec_filename = uuid .. ".txt"
+			local filename_prefix = label_filename:sub(1, temp_idx)
+			local image_filename = filename_prefix .. "_gray.dat"
+			local spec_filename = filename_prefix .. ".txt"
 
 			local label_file = assert(io.open(type_str .. "_set/labels/" .. label_filename, "r"))
 			local image_file = assert(io.open(type_str .. "_set/images/" .. image_filename, "r"))
@@ -46,6 +49,14 @@ function load_data()
 					if (label > 0) then
 						type_data[type_idx] = { imgs_type_idx, y, x, label }
 						type_idx = type_idx + 1
+					elseif (img[1][y][x] < 10) then
+						-- ATTENTION: there seems to be a bug when exporting data in the C# app.
+						-- It seems that the color value of some black point is not 0, but some small value.
+						-- so here we make label of all such values as "1", which is the normal pixel label,
+						-- Pay attention that both "label" appears in both type_data and the label_img  
+						type_data[type_idx] = { imgs_type_idx, y, x, 1 }
+						label_img[y][x] = 1
+						type_idx = type_idx + 1
 					end
 				end
 			end
@@ -60,11 +71,13 @@ function load_data()
 			imgs_type[imgs_type_idx] = img
 			label_imgs_type[imgs_type_idx] = label_img
 			ori_imgs_type[imgs_type_idx] = ori_img
-			imgs_type_idx = imgs_type_idx + 1
+			type_imgs_prefix[imgs_type_idx] = filename_prefix
 
 			if (imgs_type_idx % 10 == 0) then
 				print(imgs_type_idx .. " images loaded")
 			end
+
+			imgs_type_idx = imgs_type_idx + 1
 		end
 	end
 
@@ -81,12 +94,14 @@ function load_training_data()
 	label_imgs_train = { }
 	train_data = { }
 	train_idx_ary = { }
+	train_imgs_prefix = { }
 
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	label_imgs_type = label_imgs_train
 	type_data = train_data
 	type_idx_ary = train_idx_ary
+	type_imgs_prefix = train_imgs_prefix
 	type_str = "training"
 
 	load_data()
@@ -100,12 +115,14 @@ function load_test_data()
 	label_imgs_test = { }
 	test_data = { }
 	test_idx_ary = { }
+	test_imgs_prefix = { }
 
 	ori_imgs_type = ori_imgs_test
 	imgs_type = imgs_test
 	label_imgs_type = label_imgs_test
 	type_data = test_data
 	type_idx_ary = test_idx_ary
+	type_imgs_prefix = test_imgs_prefix
 	type_str = "test"
 
 	load_data()
@@ -149,7 +166,9 @@ function nextSample()
 
 	train_idx = (train_idx == table.getn(train_data)) and 1 or (train_idx + 1)
 
-	local input = imgs_train[img_idx]:sub(1, 1, stepY - (length-1)/2, stepY + (length-1)/2, stepX - (length-1)/2, stepX + (length-1)/2)
+	local input = use_cuda and
+		imgs_train[img_idx]:sub(1, 1, stepY - (length-1)/2, stepY + (length-1)/2, stepX - (length-1)/2, stepX + (length-1)/2):cuda() or
+		imgs_train[img_idx]:sub(1, 1, stepY - (length-1)/2, stepY + (length-1)/2, stepX - (length-1)/2, stepX + (length-1)/2)
 	return input, target
 end
 

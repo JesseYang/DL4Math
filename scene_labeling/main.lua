@@ -1,5 +1,9 @@
 require 'torch'
 require 'nn'
+if (use_cuda) then
+	require 'cutorch'
+	require 'cunn'
+end
 require 'optim'
 require 'image'
 require 'gnuplot'
@@ -11,11 +15,12 @@ require 'model'
 model_3()
 
 -- Criterion
-criterion = nn.ClassNLLCriterion()
+m = use_cuda and m:cuda() or m
+criterion = use_cuda and nn.ClassNLLCriterion():cuda() or nn.ClassNLLCriterion()
 
 -- Prepare the data
 load_training_data()
--- load_test_data()
+load_test_data()
 
 function plotTrainResult(img_idx, show_pixel_err)
 	ori_imgs_type = ori_imgs_train
@@ -45,11 +50,13 @@ function plotResult(img_idx, show_pixel_err)
 	local ground_truth = torch.zeros(3, height, width)
 	local skip = 0
 	local cur_skip = 0
-	image.display(img)
+	-- image.display(img)
 	for x = 1, width do
 		for y = 1, height do
 			if (ori_img[1][y][x] ~= 255) then
-				local i = img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2)
+				local i = use_cuda and
+					img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2):cuda() or
+					img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2)
 				score = m:forward(i)
 				local m_t, m_i = torch.max(score, 1)
 				for c = 1,3 do
@@ -193,7 +200,9 @@ function calDataErrRate()
 			img_err_pixels = 0
 		end
 
-		local input = imgs_type[img_idx]:sub(1, 1, stepY - (length-1)/2, stepY + (length-1)/2, stepX - (length-1)/2, stepX + (length-1)/2)
+		local input = use_cuda and 
+			imgs_type[img_idx]:sub(1, 1, stepY - (length-1)/2, stepY + (length-1)/2, stepX - (length-1)/2, stepX + (length-1)/2):cuda() or
+			imgs_type[img_idx]:sub(1, 1, stepY - (length-1)/2, stepY + (length-1)/2, stepX - (length-1)/2, stepX + (length-1)/2)
 
 		-- pedict
 		local pred = m:forward(input)

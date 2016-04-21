@@ -75,7 +75,6 @@ function water_flow(im_bw, blur)
 			end
 		end
 	end
-	print("222")
 	return im_bw_left
 end
 
