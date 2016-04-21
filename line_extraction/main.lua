@@ -199,6 +199,41 @@ function normal_line_combine(r1, r2)
 	return (ratio_1 > 0.75 and ratio_2 > 0.75) or (ratio_1 > 0.9) or (ratio_2 > 0.9)
 end
 
+
+function segments_extraction(cur_line, line_idx)
+	local size =  cur_line:size()
+	local height = size[1]
+	local width = size[2]
+	local space_col_num = 0
+	local start_col = 0
+	local seg_idx = 1
+	local space_interval_threshold = 3
+	local col_sum = torch.sum(cur_line, 1)
+	for cur_col = 1,width do
+		-- if (torch.sum(line[cur_col]) == 255 * height) then
+		if (col_sum[1][cur_col] == 255 * height) then
+			-- this is a space column
+			space_col_num = space_col_num + 1
+			if (space_col_num == space_interval_threshold and start_col > 0) then
+				-- get new line, from start_row to last_row
+				local seg = cur_line:sub(1, height, start_col, cur_col - space_col_num)
+				cv.imwrite { "lines/" .. filename_prefix .. "/" .. line_idx .. "_" .. seg_idx .. ".jpg", seg }
+				seg_idx = seg_idx + 1
+			end
+		else
+			-- this is not a space column
+			if (space_col_num >= space_interval_threshold) then
+				start_col = cur_col
+			end
+			space_col_num = 0
+		end
+	end
+	if (space_col_num < space_interval_threshold) then
+		local seg = cur_line:sub(1, height, start_col, width - space_col_num)
+		cv.imwrite { "lines/" .. filename_prefix .. "/" .. line_idx .. "_" .. seg_idx .. ".jpg", seg }
+	end
+end
+
 equal_dilate_size = 8
 fraction_dilate_size = 21
 
@@ -314,9 +349,9 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 
 		local m = nn.Sequential()
 		m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
-		final_lines = { }
-		final_line_locations = { }
-		final_lines_local = { }
+		local final_lines = { }
+		local final_line_locations = { }
+		local final_lines_local = { }
 		for c = 1, table.getn(normal_lines_after_combine) do
 			local temp = lines[normal_lines_after_combine[c][1]]
 			for i = 2, table.getn(normal_lines_after_combine[c]) do
@@ -331,6 +366,9 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 			-- cv.waitKey {0}
 			lfs.mkdir("lines/" .. filename_prefix)
 			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
+
+			-- separate line into segments
+			segments_extraction(final_lines_local[c], c)
 		end
 	end
 end
