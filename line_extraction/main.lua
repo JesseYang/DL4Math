@@ -1,5 +1,5 @@
 --local cv = require 'cv'
-cv = require 'cv'
+local cv = require 'cv'
 require 'cv.imgproc'
 require 'cv.imgcodecs'
 require 'cv.highgui'

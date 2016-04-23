@@ -16,3 +16,5 @@ binarize/*.jpg
 line_extraction/data_set
 line_extraction/water_imgs
 line_extraction/lines
+sequence_labeling/training_set
+sequence_labeling/models

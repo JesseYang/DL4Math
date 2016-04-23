@@ -2,7 +2,7 @@ require 'torch'
 require 'nn'
 require 'nnx'
 
-label_set = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "+", "-", "x", "/", "." }
+label_set = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "+", "-", "*", "/", ".", "x", "(", ")", "c", ":" }
 
 -- model_0 is a toy model
 function model_0()
@@ -18,8 +18,9 @@ function model_1()
 	ksize = 3
 	length = 27
 	window = 27
+	padding_height = 81
 
-	pad = 20
+	horizon_pad = 20
 
 	m = nn.Sequential()
 	-- first stage

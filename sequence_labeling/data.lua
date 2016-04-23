@@ -1,8 +1,13 @@
+local cv = require 'cv'
+require 'cv.imgproc'
+require 'cv.imgcodecs'
+require 'cv.highgui'
 require 'torch'
 require 'util'
 require 'image'
 require 'gnuplot'
 require 'lfs'
+require 'model'
 
 train_mean = 0
 stride = 2
@@ -22,56 +27,66 @@ function get_label_by_str(label_str)
 end
 
 function load_data()
-	local imgs_type_idx = 1
 	local type_idx = 1
 
-	local imgs_count = 0
-	for label_filename in lfs.dir(type_str .. "_set/specs") do
-		if (label_filename ~= "." and label_filename ~= "..") then
-			imgs_count = imgs_count + 1
-		end
-	end
-	print("Loading " .. type_str .. " data set (" .. imgs_count .. " images)")
-
-	for label_filename in lfs.dir(type_str .. "_set/specs") do
-		if (label_filename ~= "." and label_filename ~= "..") then
-			local uuid = mysplit(label_filename, ".")[1]
-			local image_filename = uuid .. "_gray.dat"
-			local spec_filename = uuid .. ".txt"
-
-			local image_file = assert(io.open(type_str .. "_set/images/" .. image_filename, "r"))
-			local spec_file = assert(io.open(type_str .. "_set/specs/" .. spec_filename, "r"))
-
-			local spec = spec_file:read()
-			local spec_ary = mysplit(spec, ";")
-			local label_str = spec_ary[2]
-			local size_ary = mysplit(spec_ary[1], ",")
-			local width = tonumber(size_ary[1])
-			local height = tonumber(size_ary[2])
-			local img = torch.zeros(1, height, width + 2 * pad):fill(255)
-			local ori_img = torch.zeros(1, height, width + 2 * pad):fill(255)
-			for y = 1, height do
-				for x = 1 + pad, width + pad do
-					img[1][y][x] = tonumber(string.byte(image_file:read(1)))
-					ori_img[1][y][x] = img[1][y][x]
+	local segment_count = 0
+	for dirname in lfs.dir(type_str .. "_set") do
+		if (dirname ~= "." and dirname ~= "..") then
+			for filename in lfs.dir(type_str .. "_set/" .. dirname) do
+				if (filename ~= "." and filename ~= "..") then
+					segment_count = segment_count + 1
 				end
 			end
-			local mean
-			if (type_str == "training") then
-				mean = img:sum() / (width * height)
-				train_mean = mean
-			else
-				mean = train_mean
-			end
-			local img = (img - mean) / 100
-			imgs_type[imgs_type_idx] = img
-			ori_imgs_type[imgs_type_idx] = ori_img
-			labels_type[imgs_type_idx] = get_label_by_str(label_str)
+		end
+	end
+	segment_count = segment_count / 2
+	print("Loading " .. type_str .. " data set (" .. segment_count .. " images)")
 
-			imgs_type_idx = imgs_type_idx + 1
-			if (imgs_type_idx % 10 == 0) then
-				print(imgs_type_idx .. " images loaded")
+
+	for dirname in lfs.dir(type_str .. "_set") do
+		if (dirname ~= "." and dirname ~= "..") then
+			for filename in lfs.dir(type_str .. "_set/" .. dirname) do
+				if (filename ~= "." and filename ~= "..") then
+					-- if (string.find(filename, "2_6.jpg") ~= nil) then
+					if (string.find(filename, ".jpg") ~= nil) then
+						print(filename)
+						-- read the image into the byte tensor "img"
+						local raw_img = cv.imread{type_str .. "_set/" .. dirname .. "/" .. filename, cv.IMREAD_GRAYSCALE}
+						local size = raw_img:size()
+						local height = size[1]
+						local width = size[2]
+						local img = torch.ByteTensor(1, height, width)
+						cv.threshold{raw_img, img[1], 10, 255, cv.THRESH_BINARY}
+						ori_imgs_type[type_idx] = img:clone()
+						img = img:float()
+						-- cv.imshow{"img", img[1]}
+						-- cv.waitKey {0}
+						-- padding the img to the height padding_height
+						local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
+						padding_img
+							:narrow(3, horizon_pad + 1, width)
+							:narrow(2, math.max(0, math.ceil((padding_height - height) / 2)), height)
+							:copy(img)
+						-- cv.imshow{"img", padding_img[1]}
+						-- cv.waitKey {0}
+						local mean = padding_img:sum() / (width * height)
+						local padding_img = (padding_img - mean) / 100
+						imgs_type[type_idx] = padding_img
+						-- read the label into "labels_type"
+						local label_pathname = type_str .. "_set/" .. dirname .. "/" .. mysplit(filename, ".")[1] .. ".txt"
+						local label_file = assert(io.open(label_pathname, "r"))
+						local label = label_file:read()
+						print("AAAAAAAA")
+						print(label)
+						print("AAAAAAAA")
+						labels_type[type_idx] = get_label_by_str(label)
+						label_filename_ary_type[type_idx] = label_pathname
+						type_idx = type_idx + 1
+						break
+					end
+				end
 			end
+			break
 		end
 	end
 
@@ -87,11 +102,13 @@ function load_training_data()
 	imgs_train = { }
 	labels_train = { }
 	train_idx_ary = { }
+	label_filename_ary_train = { }
 
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	type_idx_ary = train_idx_ary
+	label_filename_ary_type = label_filename_ary_train
 	type_str = "training"
 
 	load_data()

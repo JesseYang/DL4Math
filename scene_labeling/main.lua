@@ -221,7 +221,7 @@ function train_epoch(epoch_num)
 	for e = 1, epoch_num do
 		nClock = os.clock() 
 		train(table.getn(train_data))
-        local elapse = torch.round((os.clock() - nClock) * 10) / 10
+		local elapse = torch.round((os.clock() - nClock) * 10) / 10
 
 		for j = star_num + 1, line_star do
 			io.write("=")
