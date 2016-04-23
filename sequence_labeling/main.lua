@@ -9,6 +9,7 @@ require 'optim'
 require 'rnn'
 require 'model'
 require 'data'
+require 'image'
 
 
 -- model_0()
@@ -19,6 +20,39 @@ c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 
 -- Prepare the data
 load_training_data()
+
+function showTrainResult(img_idx)
+	local ori_img = ori_imgs_train[img_idx]
+	local img = imgs_train[img_idx]
+	local label = labels_train[img_idx]
+
+	local inputTable = getInputTableFromImg(img)
+
+	local outputTable = s:forward(inputTable)
+	local input_size = table.getn(inputTable)
+	local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	for i = 1, table.getn(inputTable) do
+		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
+	end
+	-- image.display(ori_img)
+	label_str = ""
+	for i = 1, table.getn(label) do
+		label_str = label_str .. label_set[label[i]]
+	end
+	print(label_pathname_ary_train[img_idx])
+	print(label_str)
+
+	local pred_str = ""
+	for i = 1, table.getn(inputTable) do
+		local temp, idx = torch.max(pred[1][i], 1)
+		if (idx[1] == 1) then
+			pred_str = pred_str .. " "
+		else
+			pred_str = pred_str .. label_set[idx[1] - 1]
+		end
+	end
+	print(pred_str)
+end
 
 x, dl_dx = s:getParameters()
 
