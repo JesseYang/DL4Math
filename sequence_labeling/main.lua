@@ -58,6 +58,13 @@ sgd_params = {
 	momentum = 0.9
 }
 
+-- adadelta parameters
+adadelta_params = {
+	rho = 0.95,
+	eps = 1e-6
+}
+state = { }
+
 loss_ary = { }
 test_err_rate = { }
 train_err_rate = { }
@@ -70,7 +77,8 @@ function train(time)
 	line_star = 80
 	for i =1,time do
 		evalCounter = evalCounter + 1
-		_, fs = optim.sgd(feval, x, sgd_params)
+		-- _, fs = optim.sgd(feval, x, sgd_params)
+		_, fs = optim.adadelta(feval, x, adadelta_params, state)
 		if (i % 1 == 0) then
 			if (last_epoch ~= epoch) then
 				star_num = 0
