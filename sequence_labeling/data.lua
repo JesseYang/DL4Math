@@ -81,7 +81,7 @@ function load_data()
 						print(label)
 						print("AAAAAAAA")
 						labels_type[type_idx] = get_label_by_str(label)
-						label_filename_ary_type[type_idx] = label_pathname
+						label_pathname_ary_type[type_idx] = label_pathname
 						type_idx = type_idx + 1
 					end
 				end
@@ -101,13 +101,13 @@ function load_training_data()
 	imgs_train = { }
 	labels_train = { }
 	train_idx_ary = { }
-	label_filename_ary_train = { }
+	label_pathname_ary_train = { }
 
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	type_idx_ary = train_idx_ary
-	label_filename_ary_type = label_filename_ary_train
+	label_pathname_ary_type = label_pathname_ary_train
 	type_str = "training"
 
 	load_data()
@@ -123,6 +123,20 @@ function toySample()
 	return inputTable, label
 end
 
+function getInputTableFromImg(img)
+	local size = img:size()
+	local height = size[2]
+	local width = size[3]
+
+	local inputTable = { }
+	for i = 1, width - window + 1, stride do
+		inputTable[1 + (i - 1) / stride] = use_cuda and 
+			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
+			img:sub(1, 1, 1, height, i, i + window - 1)
+	end
+	return inputTable
+end
+
 function nextSample()
 	epoch = epoch or 0
 
@@ -134,18 +148,10 @@ function nextSample()
 
 	local img = imgs_train[train_idx_ary[train_idx]]
 	local label = { labels_train[train_idx_ary[train_idx]] }
-	local size = img:size()
-	local height = size[2]
-	local width = size[3]
 
 	train_idx = (train_idx == table.getn(imgs_train)) and 1 or (train_idx + 1)
 
-	local inputTable = { }
-	for i = 1, width - window + 1, stride do
-		inputTable[1 + (i - 1) / stride] = use_cuda and 
-			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
-			img:sub(1, 1, 1, height, i, i + window - 1)
-	end
+	local inputTable = getInputTableFromImg(img)
 	return inputTable, label
 end
 
