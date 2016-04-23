@@ -48,8 +48,8 @@ function load_data()
 		if (dirname ~= "." and dirname ~= ".." and dirname == "0060_04") then
 			for filename in lfs.dir(type_str .. "_set/" .. dirname) do
 				if (filename ~= "." and filename ~= "..") then
-					if (string.find(filename, "2_6.jpg") ~= nil or string.find(filename, "3_1.jpg") ~= nil) then
-					-- if (string.find(filename, ".jpg") ~= nil) then
+					-- if (string.find(filename, "2_6.jpg") ~= nil or string.find(filename, "3_1.jpg") ~= nil) then
+					if (string.find(filename, ".jpg") ~= nil) then
 						print(filename)
 						-- read the image into the byte tensor "img"
 						local raw_img = cv.imread{type_str .. "_set/" .. dirname .. "/" .. filename, cv.IMREAD_GRAYSCALE}
