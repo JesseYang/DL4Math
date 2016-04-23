@@ -21,7 +21,7 @@ c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 -- Prepare the data
 load_training_data()
 
-function showTrainResult(img_idx)
+function showTrainResult(img_idx, rank_num)
 	local ori_img = ori_imgs_train[img_idx]
 	local img = imgs_train[img_idx]
 	local label = labels_train[img_idx]
@@ -39,19 +39,24 @@ function showTrainResult(img_idx)
 	for i = 1, table.getn(label) do
 		label_str = label_str .. label_set[label[i]]
 	end
-	print(label_pathname_ary_train[img_idx])
-	print(label_str)
+	print("Label File Name: " .. label_pathname_ary_train[img_idx])
+	print("Correct Label: " .. label_str)
 
-	local pred_str = ""
-	for i = 1, table.getn(inputTable) do
-		local temp, idx = torch.max(pred[1][i], 1)
-		if (idx[1] == 1) then
-			pred_str = pred_str .. " "
-		else
-			pred_str = pred_str .. label_set[idx[1] - 1]
+	rank_num = rank_num or 3
+	rank_num = math.min(rank_num, 5)
+	for r = 1,rank_num do
+		local pred_str = "               "
+		for i = 1, table.getn(inputTable) do
+			local temp, idx = torch.max(pred[1][i], 1)
+			pred[1][i][idx[1]] = -1e10
+			if (idx[1] == 1) then
+				pred_str = pred_str .. " "
+			else
+				pred_str = pred_str .. label_set[idx[1] - 1]
+			end
 		end
+		print(pred_str)
 	end
-	print(pred_str)
 end
 
 x, dl_dx = s:getParameters()
