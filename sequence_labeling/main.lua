@@ -206,3 +206,8 @@ function train_epoch(epoch_num)
 		torch.save("models/" .. epoch .. ".mdl", m)
 	end
 end
+
+function load_model(model_idx)
+	m = torch.load("models/" .. model_idx .. ".mdl")
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+end
