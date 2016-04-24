@@ -136,6 +136,7 @@ function load_label_img(label_filename)
 	for x = 1 + pad, width - pad do
 		for y = 1 + pad, height - pad do
 			local label = tonumber(string.byte(label_file:read(1)))
+			ori_img[y][x] = tonumber(string.byte(image_file:read(1)))
 			if (label == 1) then
 				other_img[y][x] = 0
 			end
@@ -148,9 +149,12 @@ function load_label_img(label_filename)
 			if (label == 4) then
 				fraction_img[y][x] = 0
 			end
-			ori_img[y][x] = tonumber(string.byte(image_file:read(1)))
+			if (ori_img[y][x] < 50 and label == 0) then
+				other_img[y][x] = 0
+			end
 		end
 	end
+	cv.threshold{ori_img, ori_img, 50, 255, cv.THRESH_BINARY}
 	return true
 end
 
@@ -264,8 +268,6 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 		dilate_thresh_img = dilate_img:clone()
 		cv.threshold{dilate_img, dilate_thresh_img, 250, 255, cv.THRESH_BINARY}
 		local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, label_filename)
-		-- cv.imshow{"label", dilate_thresh_img}
-		-- cv.waitKey {0}
 
 		-- labeling the results
 		local line_label_img = torch.IntTensor(dilate_thresh_img:size())
@@ -288,20 +290,24 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 		--- 1. find tiny lines and combine
 		local tiny_num_threshold = 30
 		local tiny_height_threshold = 5
+		local ignore_num_threshold = 3
 		tiny_lines = { }
 		normal_lines = { }
 		normal_lines_with_tiny = { }
 		for i = 1, label_num - 1 do
-			if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
-				table.insert(tiny_lines, i)
-			else
-				table.insert(normal_lines, i)
-				table.insert(normal_lines_with_tiny, {i})
+			if (non_zero_num[i] > ignore_num_threshold) then
+				if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
+					table.insert(tiny_lines, i)
+				else
+					table.insert(normal_lines, i)
+					table.insert(normal_lines_with_tiny, {i})
+				end
 			end
 		end
 		for i = 1, table.getn(tiny_lines) do
 			local min_dist = -1
 			local min_idx = -1
+			local min_dist_threshold = 50
 			for j = 1, table.getn(normal_lines) do
 				local cur_dist = rect_distance(rects[tiny_lines[i]], rects[normal_lines[j]])
 				if (min_dist == -1 or cur_dist < min_dist) then
@@ -309,7 +315,9 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 					min_idx = j
 				end
 			end
-			table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
+			if (min_dist < min_dist_threshold) then
+				table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
+			end
 		end
 
 		--- 2. combine normal lines
@@ -368,7 +376,7 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
 
 			-- separate line into segments
-			segments_extraction(final_lines_local[c], c)
+			-- segments_extraction(final_lines_local[c], c)
 		end
 	end
 end
