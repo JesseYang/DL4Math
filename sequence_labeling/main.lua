@@ -65,7 +65,7 @@ function showTestResult(img_idx, rank_num)
 	imgs_type = imgs_test
 	labels_type = labels_test
 	label_pathname_ary_type = label_pathname_ary_test
-	return showTrainResult(img_idx, rank_num)
+	return showDataResult(img_idx, rank_num)
 end
 
 function showTrainResult(img_idx, rank_num)
