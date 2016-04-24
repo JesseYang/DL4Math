@@ -1,11 +1,9 @@
+equation_data
 mdlstm
 scene_labeling/results
 scene_labeling/models
 scene_labeling/training_set
 scene_labeling/test_set
-equation_data
-feature_extractor
-data
 binarize/300dpi
 binarize/300dpi_bak
 binarize/300dpi_binary
@@ -17,4 +15,5 @@ line_extraction/data_set
 line_extraction/water_imgs
 line_extraction/lines
 sequence_labeling/training_set
+sequence_labeling/test_set
 sequence_labeling/models

@@ -113,6 +113,25 @@ function load_training_data()
 	train_idx = 1
 end
 
+function load_test_data()
+	ori_imgs_test = { }
+	imgs_test = { }
+	labels_test = { }
+	test_idx_ary = { }
+	label_pathname_ary_test = { }
+
+	ori_imgs_type = ori_imgs_test
+	imgs_type = imgs_test
+	labels_type = labels_test
+	type_idx_ary = test_idx_ary
+	label_pathname_ary_type = label_pathname_ary_test
+	type_str = "test"
+
+	load_data()
+
+	test_idx = 1
+end
+
 inputTable = { }
 inputTable[1] = torch.rand(1, 3, 3)
 inputTable[2] = torch.rand(1, 3, 3)

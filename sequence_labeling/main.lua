@@ -20,11 +20,12 @@ c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 
 -- Prepare the data
 load_training_data()
+load_test_data()
 
-function showTrainResult(img_idx, rank_num)
-	local ori_img = ori_imgs_train[img_idx]
-	local img = imgs_train[img_idx]
-	local label = labels_train[img_idx]
+function showDataResult(img_idx, rank_num)
+	local ori_img = ori_imgs_type[img_idx]
+	local img = imgs_type[img_idx]
+	local label = labels_type[img_idx]
 
 	local inputTable = getInputTableFromImg(img)
 
@@ -39,7 +40,7 @@ function showTrainResult(img_idx, rank_num)
 	for i = 1, table.getn(label) do
 		label_str = label_str .. label_set[label[i]]
 	end
-	print("Label File Name: " .. label_pathname_ary_train[img_idx])
+	print("Label File Name: " .. label_pathname_ary_type[img_idx])
 	print("Correct Label: " .. label_str)
 
 	rank_num = rank_num or 3
@@ -59,12 +60,28 @@ function showTrainResult(img_idx, rank_num)
 	end
 end
 
-function calTrainErrRate()
-	print("Error rate on training set (image number: " .. table.getn(imgs_train) .. ")")
+function showTestResult(img_idx, rank_num)
+	ori_imgs_type = ori_imgs_test
+	imgs_type = imgs_test
+	labels_type = labels_test
+	label_pathname_ary_type = label_pathname_ary_test
+	return showTrainResult(img_idx, rank_num)
+end
+
+function showTrainResult(img_idx, rank_num)
+	ori_imgs_type = ori_imgs_train
+	imgs_type = imgs_train
+	labels_type = labels_train
+	label_pathname_ary_type = label_pathname_ary_train
+	return showDataResult(img_idx, rank_num)
+end
+
+function calDataErrRate()
+	print("Error rate on " .. type_str .. " set (image number: " .. table.getn(imgs_type) .. ")")
 	local err_num = 0
-	for img_idx = 1,table.getn(imgs_train) do
-		local img = imgs_train[img_idx]
-		local label = labels_train[img_idx]
+	for img_idx = 1,table.getn(imgs_type) do
+		local img = imgs_type[img_idx]
+		local label = labels_type[img_idx]
 
 		local inputTable = getInputTableFromImg(img)
 		local outputTable = s:forward(inputTable)
@@ -97,11 +114,27 @@ function calTrainErrRate()
 		end
 		local pred_str = table.concat(pred_str_ary)
 		if (pred_str ~= label_str) then
-			print(img_idx .. ": " .. label_pathname_ary_train[img_idx])
+			print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
 			err_num = err_num + 1
 		end
 	end
-	print("Error rate: " .. err_num / table.getn(imgs_train) .. ". " .. err_num .. "/" .. table.getn(imgs_train))
+	print("Error rate: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
+end
+
+function calTestErrRate()
+	imgs_type = imgs_test
+	labels_type = labels_test
+	label_pathname_ary_type = label_pathname_ary_test
+	type_str = "test"
+	return calDataErrRate()
+end
+
+function calTrainErrRate()
+	imgs_type = imgs_train
+	labels_type = labels_train
+	label_pathname_ary_type = label_pathname_ary_train
+	type_str = "training"
+	return calDataErrRate()
 end
 
 x, dl_dx = s:getParameters()
