@@ -59,6 +59,51 @@ function showTrainResult(img_idx, rank_num)
 	end
 end
 
+function calTrainErrRate()
+	print("Error rate on training set (image number: " .. table.getn(imgs_train) .. ")")
+	local err_num = 0
+	for img_idx = 1,table.getn(imgs_train) do
+		local img = imgs_train[img_idx]
+		local label = labels_train[img_idx]
+
+		local inputTable = getInputTableFromImg(img)
+		local outputTable = s:forward(inputTable)
+		local input_size = table.getn(inputTable)
+		local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+		for i = 1, table.getn(inputTable) do
+			pred[1][i] = torch.reshape(outputTable[i], 1, klass)
+		end
+
+		label_str = ""
+		for i = 1, table.getn(label) do
+			label_str = label_str .. label_set[label[i]]
+		end
+
+		local pred_str_ary = { }
+		local pred_idx = 1
+		local last_c = ""
+		for i = 1, table.getn(inputTable) do
+			local temp, idx = torch.max(pred[1][i], 1)
+			pred[1][i][idx[1]] = -1e10
+			if (idx[1] ~= 1) then
+				if (last_c ~= label_set[idx[1] - 1]) then
+					pred_str_ary[pred_idx] = label_set[idx[1] - 1]
+					pred_idx = pred_idx + 1
+					last_c = label_set[idx[1] - 1]
+				end
+			else
+				last_c = ""
+			end
+		end
+		local pred_str = table.concat(pred_str_ary)
+		if (pred_str ~= label_str) then
+			print(label_pathname_ary_train[img_idx])
+			err_num = err_num + 1
+		end
+	end
+	print("Error rate: " .. err_num / table.getn(imgs_train) .. ". " .. err_num .. "/" .. table.getn(imgs_train))
+end
+
 x, dl_dx = s:getParameters()
 
 feval = function(x_new)
