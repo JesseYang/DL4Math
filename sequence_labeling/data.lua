@@ -44,8 +44,8 @@ function load_data()
 
 
 	for dirname in lfs.dir(type_str .. "_set") do
-		-- if (dirname ~= "." and dirname ~= "..") then
-		if (dirname ~= "." and dirname ~= ".." and dirname == "0060_04") then
+		if (dirname ~= "." and dirname ~= "..") then
+		-- if (dirname ~= "." and dirname ~= ".." and dirname == "0060_04") then
 			for filename in lfs.dir(type_str .. "_set/" .. dirname) do
 				if (filename ~= "." and filename ~= "..") then
 					-- if (string.find(filename, "2_6.jpg") ~= nil or string.find(filename, "3_1.jpg") ~= nil) then
@@ -77,9 +77,7 @@ function load_data()
 						local label_pathname = type_str .. "_set/" .. dirname .. "/" .. mysplit(filename, ".")[1] .. ".txt"
 						local label_file = assert(io.open(label_pathname, "r"))
 						local label = label_file:read()
-						print("AAAAAAAA")
-						print(label)
-						print("AAAAAAAA")
+						-- print(label)
 						labels_type[type_idx] = get_label_by_str(label)
 						label_pathname_ary_type[type_idx] = label_pathname
 						type_idx = type_idx + 1

@@ -97,7 +97,7 @@ function calTrainErrRate()
 		end
 		local pred_str = table.concat(pred_str_ary)
 		if (pred_str ~= label_str) then
-			print(label_pathname_ary_train[img_idx])
+			print(img_idx .. ": " .. label_pathname_ary_train[img_idx])
 			err_num = err_num + 1
 		end
 	end
