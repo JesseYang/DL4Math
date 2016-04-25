@@ -38,15 +38,21 @@ function line_extraction_1(im_bw, line_dir_name)
 	end
 end
 
-function water_flow(im_bw, blur)
+function water_flow(im_bw)
 	local im_bw_left = im_bw:clone():fill(0)
+	local angle_level = 5
 	for i = 1, width do
 		if (i > 1) then
 			im_bw_left:sub(1,height, i,i):copy(im_bw_left:sub(1,height, i-1,i-1))
 		end
+		--[[
+		local sum
+		if (i > angle_level) then
+			sum = torch.sum(im_bw_left:sub(1, height, i-angle_level, i-1), 2)
+		end
+		]]
 		for j = 1, height do
 			if (im_bw[j][i] == 255) then
-				local angle_level = angle_level_ary[blur[j][i]]
 				if (i == 1) then
 					-- background points in the first column are always wet 
 					im_bw_left[j][i] = 122
@@ -56,6 +62,7 @@ function water_flow(im_bw, blur)
 							-- check the above row
 							if (j > 1) then
 								if (torch.sum(im_bw_left:sub(j-1, j-1, i-angle_level, i-1)) == 122 * angle_level) then
+								-- if (sum[j-1] == 122 * angle_level) then
 									if (im_bw[j-1][i] == 255) then
 										im_bw_left[j][i] = 122
 									end
@@ -64,6 +71,7 @@ function water_flow(im_bw, blur)
 							-- check the below row
 							if (im_bw_left[j][i] ~= 122 and j < height) then
 								if (torch.sum(im_bw_left:sub(j+1, j+1, i-angle_level, i-1)) == 122 * angle_level) then
+								-- if (sum[j+1] == 122 * angle_level) then
 									if (im_bw[j+1][i] == 255) then
 										im_bw_left[j][i] = 122
 									end
@@ -80,25 +88,13 @@ function water_flow(im_bw, blur)
 	return im_bw_left
 end
 
-angle_level_ary = { }
-for i = 0, 255 do
-	local t = math.floor(i / 6) - 34
-	if (t <= 1) then
-		table.insert(angle_level_ary, 1)
-	else
-		table.insert(angle_level_ary, t)
-	end
-end
 function line_extraction_2(im_bw, im_bw_for_blur, filename)
-	im_bw_blur = im_bw_for_blur:clone()
-	cv.GaussianBlur { src = im_bw_for_blur, ksize={21, 21}, sigmaX=10, dst=im_bw_blur, sigmaY=10}
-
 	size = im_bw:size()
 	height = size[1]
 	width = size[2]
 	-- first water flow from left to right
-	local im_bw_left = water_flow(im_bw, im_bw_blur)
-	local im_bw_right = image.hflip(water_flow(image.hflip(im_bw), image.hflip(im_bw_blur)))
+	local im_bw_left = water_flow(im_bw)
+	local im_bw_right = image.hflip(water_flow(image.hflip(im_bw)))
 
 	local im_bw_water = im_bw:clone()
 	local im_for_label = im_bw:clone():fill(1)
