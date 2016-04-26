@@ -62,8 +62,10 @@ function load_data()
 			local width = spec_ary[1] + pad * 2
 			local height = spec_ary[2] + pad * 2
 			local img = torch.zeros(1, height, width):fill(255)
-			local ori_img = torch.zeros(1, height, width):fill(255)
-			local label_img = torch.zeros(height, width):fill(0)
+			-- local ori_img = torch.zeros(1, height, width):fill(255)
+			local ori_img = torch.ByteTensor(1, height, width):fill(255)
+			-- local label_img = torch.zeros(height, width):fill(0)
+			local label_img = torch.ByteTensor(height, width):fill(0)
 			for x = 1 + pad, width - pad do
 				for y = 1 + pad, height - pad do
 					img[1][y][x] = tonumber(string.byte(image_file:read(1)))
