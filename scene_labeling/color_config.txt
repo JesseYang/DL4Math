@@ -1,5 +1,5 @@
-eq_top:255,0,0
-eq_bottom:0,0,255
-div:0,255,0
-noise:255,0,255
-sqrt:0,255,255
+normal:255,0,0
+equal_top:0,0,255
+equal_bottom:0,255,0
+fraction:255,0,255
+noise:0,255,255

@@ -243,7 +243,7 @@ function train_epoch(epoch_num)
 	end
 end
 
-function load_model(model_idx)
+function load_model_for_train(model_idx)
 	m = torch.load("models/" .. model_idx .. ".mdl")
 	x, dl_dx = m:getParameters()
 	epoch = model_idx
@@ -255,4 +255,8 @@ function load_model(model_idx)
 	for i = 1,epoch * table.getn(train_data) do
 		loss_ary[i] = 0
 	end
+end
+
+function load_model_for_test(model_idx)
+	m = torch.load("models/" .. model_idx .. ".mdl")
 end

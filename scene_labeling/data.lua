@@ -5,7 +5,8 @@ require 'gnuplot'
 require 'lfs'
 
 
-train_mean = 0
+mean_file = assert(io.open("models/mean", "r"))
+train_mean = tonumber(mean_file:read())
 
 function output_pred_on_test_set()
 	-- use the model to predict the output of the test images, and save for the usage of the line extraction app
@@ -61,7 +62,7 @@ function load_data()
 			local spec_ary = mysplit(spec, ",")
 			local width = spec_ary[1] + pad * 2
 			local height = spec_ary[2] + pad * 2
-			local img = torch.zeros(1, height, width):fill(255)
+			local img = torch.FloatTensor(1, height, width):fill(255)
 			-- local ori_img = torch.zeros(1, height, width):fill(255)
 			local ori_img = torch.ByteTensor(1, height, width):fill(255)
 			-- local label_img = torch.zeros(height, width):fill(0)
