@@ -234,6 +234,35 @@ function segments_extraction(cur_line, line_idx)
 	end
 end
 
+function compress_line(line)
+	local size_ary = line:size()
+	local height = size_ary[1]
+	local width = size_ary[2]
+	local sel_col_idx_ary = { }
+	local sel_col_num = 1
+	local space_col_thresh = 3
+	local space_col_num = space_col_thresh - 2
+	for c = 1, width do
+		local sel = false
+		if (line:sub(1, height, c, c):sum() == 255 * height) then
+			if (space_col_num >= space_col_thresh) then
+				sel = false
+			else
+				space_col_num = space_col_num + 1
+				sel = true
+			end
+		else
+			sel = true
+			space_col_num = 0
+		end
+		if (sel == true) then
+			sel_col_idx_ary[sel_col_num] = c
+			sel_col_num = sel_col_num + 1
+		end
+	end
+	return line:index(2, torch.LongTensor(sel_col_idx_ary))
+end
+
 equal_dilate_size = 8
 fraction_dilate_size = 21
 
@@ -355,7 +384,7 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 		m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
 		local final_lines = { }
 		local final_line_locations = { }
-		local final_lines_local = { }
+		final_lines_local = { }
 		for c = 1, table.getn(normal_lines_after_combine) do
 			local temp = lines[normal_lines_after_combine[c][1]]
 			for i = 2, table.getn(normal_lines_after_combine[c]) do
@@ -370,9 +399,10 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 			-- cv.waitKey {0}
 			lfs.mkdir("lines/" .. filename_prefix)
 			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
+			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. "_compress.jpg", compress_line(final_lines_local[c]) }
 
 			-- separate line into segments
-			-- segments_extraction(final_lines_local[c], c)
+			segments_extraction(final_lines_local[c], c)
 		end
 	end
 end
