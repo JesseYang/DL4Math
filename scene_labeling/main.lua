@@ -1,3 +1,4 @@
+use_cuda = true
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -130,6 +131,13 @@ sgd_params = {
 	momentum = 0.9
 }
 
+-- adadelta parameters
+adadelta_params = {
+	rho = 0.95,
+	eps = 1e-6
+}
+state = { }
+
 loss_ary = { }
 test_err_rate = { }
 train_err_rate = { }
@@ -213,6 +221,7 @@ function calDataErrRate()
 			img_err_pixels = img_err_pixels + 1
 		end
 	end
+	print("Image " .. cur_img_idx .. ": " .. img_err_pixels .. " wrong pixels.")
 	print("Error rate: " .. errNum / table.getn(type_data) .. ". Wrong pixel number: " .. errNum)
 	return errNum / table.getn(type_data)
 end
@@ -235,8 +244,9 @@ function train_epoch(epoch_num)
 		io.write(" Execution time: " .. elapse .. "s.")
 		io.write("\n")
 
-		-- test on the test set
-		-- test_err_rate[epoch] = calTestErrRate()
+		-- test on the training set and test set
+		train_err_rate[epoch] = calTrainErrRate()
+		test_err_rate[epoch] = calTestErrRate()
 
 		-- save the model file
 		torch.save("models/" .. epoch .. ".mdl", m)
@@ -260,3 +270,5 @@ end
 function load_model_for_test(model_idx)
 	m = torch.load("models/" .. model_idx .. ".mdl")
 end
+
+train_epoch(30)

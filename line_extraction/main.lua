@@ -263,7 +263,7 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 		dilate_img = cv.addWeighted{dialate_equal_img, 0.5, other_fraction_img, 0.5, 0}
 		dilate_thresh_img = dilate_img:clone()
 		cv.threshold{dilate_img, dilate_thresh_img, 250, 255, cv.THRESH_BINARY}
-		local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, label_filename)
+		local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, filename_prefix)
 
 		-- labeling the results
 		local line_label_img = torch.IntTensor(dilate_thresh_img:size())
@@ -361,7 +361,7 @@ for label_filename in lfs.dir(data_path .. "labels/") do
 			for i = 2, table.getn(normal_lines_after_combine[c]) do
 				temp = cv.addWeighted{temp, 0.5, lines[normal_lines_after_combine[c][i]], 0.5, 0}
 			end
-			final_lines[c] = 255 - torch.ne(temp, 0) * 255
+			final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
 			local rect = cv.boundingRect{temp}
 			final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
 			final_lines_local[c] = m:forward(final_lines_local[c])

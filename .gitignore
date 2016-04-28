@@ -5,6 +5,7 @@ scene_labeling/results
 scene_labeling/models
 scene_labeling/training_set
 scene_labeling/test_set
+scene_labeling/log
 binarize/300dpi
 binarize/300dpi_bak
 binarize/300dpi_binary
