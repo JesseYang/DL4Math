@@ -17,21 +17,25 @@ function output_pred_on_test_set()
 		local height = s[2]
 		local width = s[3]
 		local result = torch.zeros(3, height, width)
-		local label_file = assert(io.open("results/" .. filename_prefix .. "_label.dat", "w"))
-		for x = 1, width do
-			for y = 1, height do
+		print(height - 2 * pad)
+		print(width - 2 * pad)
+		local label_file = assert(io.open("results/" .. test_imgs_prefix[img_idx] .. "_label.dat", "w"))
+		for x = pad + 1, width - pad do
+			for y = pad + 1, height - pad do
 				if (ori_img[1][y][x] ~= 255) then
 					local i = use_cuda and
 						img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2):cuda() or
 						img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2)
 					score = m:forward(i)
 					local m_t, m_i = torch.max(score, 1)
-					label_file:write(m_i[1])
+					label_file:write(string.char(m_i[1]))
 				else
-					label_file:write(0)
+					label_file:write(string.char(0))
 				end
 			end
 		end
+		label_file:flush()
+		label_file:close()
 	end
 end
 
@@ -105,6 +109,7 @@ function load_data()
 			end
 
 			imgs_type_idx = imgs_type_idx + 1
+			break
 		end
 	end
 

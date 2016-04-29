@@ -20,7 +20,7 @@ m = use_cuda and m:cuda() or m
 criterion = use_cuda and nn.ClassNLLCriterion():cuda() or nn.ClassNLLCriterion()
 
 -- Prepare the data
-load_training_data()
+-- load_training_data()
 load_test_data()
 
 function plotTrainResult(img_idx, show_pixel_err)
@@ -271,4 +271,4 @@ function load_model_for_test(model_idx)
 	m = torch.load("models/" .. model_idx .. ".mdl")
 end
 
-train_epoch(30)
+-- train_epoch(30)
