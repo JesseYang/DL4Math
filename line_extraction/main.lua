@@ -150,6 +150,20 @@ function load_label_img(label_filename)
 			end
 		end
 	end
+	-- filter out noise in equal_top_img, equal_bottom_img and fraction_img
+	-- fist blur and then threshold
+	-- cv.imshow{"tmp", equal_bottom_img}
+	-- cv.waitKey{0}
+	--[[
+	fraction_img = cv.boxFilter{ src=fraction_img, ksize={3,3}, ddepth=-1 }
+	equal_top_img = cv.boxFilter{ src=equal_top_img, ksize={3,3}, ddepth=-1 }
+	equal_bottom_img = cv.boxFilter{ src=equal_bottom_img, ksize={3,3}, ddepth=-1 }
+	cv.threshold{fraction_img, fraction_img, 125, 255, cv.THRESH_BINARY}
+	cv.threshold{equal_top_img, equal_top_img, 100, 255, cv.THRESH_BINARY}
+	cv.threshold{equal_bottom_img, equal_bottom_img, 100, 255, cv.THRESH_BINARY}
+	]]
+	-- cv.imshow{"tmp", equal_bottom_img}
+	-- cv.waitKey{0}
 	cv.threshold{ori_img, ori_img, 50, 255, cv.THRESH_BINARY}
 	return true
 end
@@ -266,143 +280,161 @@ end
 equal_dilate_size = 8
 fraction_dilate_size = 21
 
-for label_filename in lfs.dir(data_path .. "labels/") do
-	if (label_filename ~= "." and label_filename ~= "..") then
-		print(label_filename)
-		local temp_idx = string.find(label_filename, "_label") - 1
-		filename_prefix = label_filename:sub(1, temp_idx)
+function main()
+	for label_filename in lfs.dir(data_path .. "labels/") do
+		if (label_filename ~= "." and label_filename ~= "..") then
+			print(label_filename)
+			local temp_idx = string.find(label_filename, "_label") - 1
+			filename_prefix = label_filename:sub(1, temp_idx)
 
-		-- the input of one image includes { original image, top equal sub-image, bottom equal sub-image, fraction sub-image }
-		load_label_img(label_filename)
+			-- the input of one image includes { original image, top equal sub-image, bottom equal sub-image, fraction sub-image }
+			load_label_img(label_filename)
 
-		-- dilate on the euqal_top_img
-		e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, equal_dilate_size}}
-		dilate_equal_top_img = cv.erode {src=equal_top_img, dst=nil, kernel=e, anchor={-1,equal_dilate_size - 1}, borderValue={255,255,255,255}}
+			-- dilate on the equal_top_img
+			e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, equal_dilate_size}}
+			dilate_equal_top_img = cv.erode {src=equal_top_img, dst=nil, kernel=e, anchor={-1,equal_dilate_size - 1}, borderValue={255,255,255,255}}
 
-		-- dilate on the euqal_bottom_img
-		-- e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, equal_dilate_size}}
-		dilate_equal_bottom_img = cv.erode {src=equal_bottom_img, dst=nil, kernel=e, anchor={-1,0}, borderValue={255,255,255,255}}
+			-- dilate on the equal_bottom_img
+			-- e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, equal_dilate_size}}
+			dilate_equal_bottom_img = cv.erode {src=equal_bottom_img, dst=nil, kernel=e, anchor={-1,0}, borderValue={255,255,255,255}}
 
-		-- dilate on the fraction_img
-		e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, fraction_dilate_size}}
-		dilate_fraction_img = cv.erode {src=fraction_img, dst=nil, kernel=e, anchor={-1,-1}, borderValue={255,255,255,255}}
+			-- dilate on the fraction_img
+			e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, fraction_dilate_size}}
+			dilate_fraction_img = cv.erode {src=fraction_img, dst=nil, kernel=e, anchor={-1,-1}, borderValue={255,255,255,255}}
 
-		dialate_equal_img = cv.addWeighted{dilate_equal_top_img, 0.5, dilate_equal_bottom_img, 0.5, 0}
-		other_fraction_img = cv.addWeighted{other_img, 0.5, dilate_fraction_img, 0.5, 0}
-		dilate_img = cv.addWeighted{dialate_equal_img, 0.5, other_fraction_img, 0.5, 0}
-		dilate_thresh_img = dilate_img:clone()
-		cv.threshold{dilate_img, dilate_thresh_img, 250, 255, cv.THRESH_BINARY}
-		local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, filename_prefix)
+			dialate_equal_img = cv.addWeighted{dilate_equal_top_img, 0.5, dilate_equal_bottom_img, 0.5, 0}
+			other_fraction_img = cv.addWeighted{other_img, 0.5, dilate_fraction_img, 0.5, 0}
+			dilate_img = cv.addWeighted{dialate_equal_img, 0.5, other_fraction_img, 0.5, 0}
+			dilate_thresh_img = dilate_img:clone()
+			cv.threshold{dilate_img, dilate_thresh_img, 250, 255, cv.THRESH_BINARY}
+			local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, filename_prefix)
 
-		-- labeling the results
-		local line_label_img = torch.IntTensor(dilate_thresh_img:size())
-		local label_num = cv.connectedComponents{for_line_label_img, line_label_img, 4}
+			-- labeling the results
+			local line_label_img = torch.IntTensor(dilate_thresh_img:size())
+			local label_num = cv.connectedComponents{for_line_label_img, line_label_img, 4}
 
-		line_label_img = line_label_img:byte()
-		rects = { }
-		non_zero_num = { }
-		lines = { }
-		for i = 1, label_num - 1 do
-			local cur_line_label_img = torch.ne(torch.eq(line_label_img, i), 1) * 255
-			cur_line = cv.addWeighted{cur_line_label_img, 0.5, ori_img, 0.5, 0}
-			cur_line = torch.eq(cur_line, 0)
-			lines[i] = cur_line * 255
-			rects[i] = cv.boundingRect{cur_line}
-			non_zero_num[i] = torch.nonzero(cur_line):size()[1]
-		end
+			line_label_img = line_label_img:byte()
+			rects = { }
+			non_zero_num = { }
+			lines = { }
+			for i = 1, label_num - 1 do
+				local cur_line_label_img = torch.ne(torch.eq(line_label_img, i), 1) * 255
+				cur_line = cv.addWeighted{cur_line_label_img, 0.5, ori_img, 0.5, 0}
+				cur_line = torch.eq(cur_line, 0)
+				lines[i] = cur_line * 255
+				rects[i] = cv.boundingRect{cur_line}
+				non_zero_num[i] = torch.nonzero(cur_line):size()[1]
+			end
 
-		-- combine lines
-		--- 1. find tiny lines and combine
-		local tiny_num_threshold = 30
-		local tiny_height_threshold = 5
-		local ignore_num_threshold = 3
-		tiny_lines = { }
-		normal_lines = { }
-		normal_lines_with_tiny = { }
-		for i = 1, label_num - 1 do
-			if (non_zero_num[i] > ignore_num_threshold) then
-				if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
-					table.insert(tiny_lines, i)
-				else
-					table.insert(normal_lines, i)
-					table.insert(normal_lines_with_tiny, {i})
+			-- combine lines
+			--- 1. find tiny lines and combine
+			local tiny_num_threshold = 30
+			local tiny_height_threshold = 5
+			local ignore_num_threshold = 3
+			tiny_lines = { }
+			normal_lines = { }
+			normal_lines_with_tiny = { }
+			for i = 1, label_num - 1 do
+				if (non_zero_num[i] > ignore_num_threshold) then
+					if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
+						table.insert(tiny_lines, i)
+					else
+						table.insert(normal_lines, i)
+						table.insert(normal_lines_with_tiny, {i})
+					end
 				end
 			end
-		end
-		for i = 1, table.getn(tiny_lines) do
-			local min_dist = -1
-			local min_idx = -1
-			local min_dist_threshold = 50
-			for j = 1, table.getn(normal_lines) do
-				local cur_dist = rect_distance(rects[tiny_lines[i]], rects[normal_lines[j]])
-				if (min_dist == -1 or cur_dist < min_dist) then
-					min_dist = cur_dist
-					min_idx = j
+			for i = 1, table.getn(tiny_lines) do
+				local min_dist = -1
+				local min_idx = -1
+				local min_dist_threshold = 50
+				for j = 1, table.getn(normal_lines) do
+					local cur_dist = rect_distance(rects[tiny_lines[i]], rects[normal_lines[j]])
+					if (min_dist == -1 or cur_dist < min_dist) then
+						min_dist = cur_dist
+						min_idx = j
+					end
+				end
+				if (min_dist < min_dist_threshold) then
+					table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
 				end
 			end
-			if (min_dist < min_dist_threshold) then
-				table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
-			end
-		end
 
-		--- 2. combine normal lines
-		normal_lines_after_combine = { }
-		normal_lines_combine_index = { }
-		local cluster_num = 0
-		for i = 1, table.getn(normal_lines) do
-			local find_cluster = false
-			for c = 1, cluster_num do
-				for j = 1, table.getn(normal_lines_after_combine[c]) do
-					if (normal_line_combine(rects[normal_lines[i]], rects[normal_lines_after_combine[c][j]])) then
-						find_cluster = true
-						table.insert(normal_lines_after_combine[c], normal_lines[i])
-						normal_lines_combine_index[normal_lines[i]] = c
+			--- 2. combine normal lines
+			normal_lines_after_combine = { }
+			normal_lines_combine_index = { }
+			local cluster_num = 0
+			for i = 1, table.getn(normal_lines) do
+				local find_cluster = false
+				for c = 1, cluster_num do
+					for j = 1, table.getn(normal_lines_after_combine[c]) do
+						if (normal_line_combine(rects[normal_lines[i]], rects[normal_lines_after_combine[c][j]])) then
+							find_cluster = true
+							table.insert(normal_lines_after_combine[c], normal_lines[i])
+							normal_lines_combine_index[normal_lines[i]] = c
+							break
+						end
+					end
+					if (find_cluster) then
 						break
 					end
 				end
-				if (find_cluster) then
-					break
+				if (find_cluster == false) then
+					cluster_num = cluster_num + 1
+					normal_lines_after_combine[cluster_num] = { normal_lines[i] }
+					normal_lines_combine_index[normal_lines[i]] = cluster_num
 				end
 			end
-			if (find_cluster == false) then
-				cluster_num = cluster_num + 1
-				normal_lines_after_combine[cluster_num] = { normal_lines[i] }
-				normal_lines_combine_index[normal_lines[i]] = cluster_num
-			end
-		end
-		for i = 1, table.getn(normal_lines_with_tiny) do
-			if (table.getn(normal_lines_with_tiny[i]) > 1) then
-				local normal_line_idx = normal_lines_with_tiny[i][1]
-				local cluster_idx = normal_lines_combine_index[normal_line_idx]
-				for j = 2, table.getn(normal_lines_with_tiny[i]) do
-					table.insert(normal_lines_after_combine[cluster_idx], normal_lines_with_tiny[i][j])
+			for i = 1, table.getn(normal_lines_with_tiny) do
+				if (table.getn(normal_lines_with_tiny[i]) > 1) then
+					local normal_line_idx = normal_lines_with_tiny[i][1]
+					local cluster_idx = normal_lines_combine_index[normal_line_idx]
+					for j = 2, table.getn(normal_lines_with_tiny[i]) do
+						table.insert(normal_lines_after_combine[cluster_idx], normal_lines_with_tiny[i][j])
+					end
 				end
 			end
-		end
 
-		local m = nn.Sequential()
-		m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
-		local final_lines = { }
-		local final_line_locations = { }
-		final_lines_local = { }
-		for c = 1, table.getn(normal_lines_after_combine) do
-			local temp = lines[normal_lines_after_combine[c][1]]
-			for i = 2, table.getn(normal_lines_after_combine[c]) do
-				temp = cv.addWeighted{temp, 0.5, lines[normal_lines_after_combine[c][i]], 0.5, 0}
+			local m = nn.Sequential()
+			m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
+			local final_lines = { }
+			local final_line_locations = { }
+			final_lines_local = { }
+			for c = 1, table.getn(normal_lines_after_combine) do
+				local temp = lines[normal_lines_after_combine[c][1]]
+				for i = 2, table.getn(normal_lines_after_combine[c]) do
+					temp = cv.addWeighted{temp, 0.5, lines[normal_lines_after_combine[c][i]], 0.5, 0}
+				end
+				final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
+				local rect = cv.boundingRect{temp}
+				final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
+				final_lines_local[c] = m:forward(final_lines_local[c])
+				final_line_locations[c] = rect
+				-- cv.imshow{"final_line", final_lines_local[c]}
+				-- cv.waitKey {0}
+				lfs.mkdir("lines/" .. filename_prefix)
+				cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
+				cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. "_compress.jpg", compress_line(final_lines_local[c]) }
+
+				-- separate line into segments
+				segments_extraction(final_lines_local[c], c)
 			end
-			final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
-			local rect = cv.boundingRect{temp}
-			final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
-			final_lines_local[c] = m:forward(final_lines_local[c])
-			final_line_locations[c] = rect
-			-- cv.imshow{"final_line", final_lines_local[c]}
-			-- cv.waitKey {0}
-			lfs.mkdir("lines/" .. filename_prefix)
-			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
-			cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. "_compress.jpg", compress_line(final_lines_local[c]) }
+		end
+	end
+end
 
-			-- separate line into segments
-			segments_extraction(final_lines_local[c], c)
+
+function tidyup()
+	for line_dir in lfs.dir("lines/") do
+		if (line_dir ~= "." and line_dir ~= "..") then
+			-- print(line_dir)
+			for line_file in lfs.dir("lines/" .. line_dir .. "/") do
+				if (string.find(line_file, "compress") ~= nil) then
+					local cmd = "cp " .. "lines/" .. line_dir .. "/" .. line_file .. " compressed_lines/" .. line_dir .. "_" .. line_file
+					-- print(cmd)
+					os.execute(cmd)
+				end
+			end
 		end
 	end
 end
