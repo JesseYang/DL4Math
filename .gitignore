@@ -20,3 +20,4 @@ line_extraction/compressed_lines*
 sequence_labeling/training_set
 sequence_labeling/test_set
 sequence_labeling/models
+sequence_labeling/loss

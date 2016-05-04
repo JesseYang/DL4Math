@@ -10,7 +10,7 @@ require 'lfs'
 require 'model'
 
 train_mean = 0
-stride = 2
+stride = 1
 
 function get_label_by_str(label_str)
 	char_idx = 1
@@ -41,7 +41,8 @@ function load_data()
 				local print_style_file = assert(io.open(print_style_filepath, "r"))
 				local print_style = print_style_file:read()
 				print_style_file:close()
-				if (print_style == "0") then
+				-- if (print_style == "0") then
+				if (true) then
 					local img_filepath = type_str .. "_set/compressed_lines/" .. prefix .. "_compress.jpg"
 					print(img_filepath)
 					local raw_img = cv.imread{img_filepath, cv.IMREAD_GRAYSCALE}
@@ -73,71 +74,11 @@ function load_data()
 		end
 	end
 
-	--[[
-	local type_idx = 1
-
-	local segment_count = 0
-	for dirname in lfs.dir(type_str .. "_set") do
-		if (dirname ~= "." and dirname ~= "..") then
-			for filename in lfs.dir(type_str .. "_set/" .. dirname) do
-				if (filename ~= "." and filename ~= "..") then
-					segment_count = segment_count + 1
-				end
-			end
-		end
-	end
-	segment_count = segment_count / 2
-	print("Loading " .. type_str .. " data set (" .. segment_count .. " images)")
-
-
-	for dirname in lfs.dir(type_str .. "_set") do
-		if (dirname ~= "." and dirname ~= "..") then
-			for filename in lfs.dir(type_str .. "_set/" .. dirname) do
-				if (filename ~= "." and filename ~= "..") then
-					if (string.find(filename, ".jpg") ~= nil) then
-						print(filename)
-						-- read the image into the byte tensor "img"
-						local raw_img = cv.imread{type_str .. "_set/" .. dirname .. "/" .. filename, cv.IMREAD_GRAYSCALE}
-						local size = raw_img:size()
-						local height = size[1]
-						local width = size[2]
-						local img = torch.ByteTensor(1, height, width)
-						cv.threshold{raw_img, img[1], 10, 255, cv.THRESH_BINARY}
-						ori_imgs_type[type_idx] = img:clone()
-						img = img:float()
-						-- cv.imshow{"img", img[1]}
-						-- cv.waitKey {0}
-						-- padding the img to the height padding_height
-						local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
-						padding_img
-							:narrow(3, horizon_pad + 1, width)
-							:narrow(2, math.max(0, math.ceil((padding_height - height) / 2)), height)
-							:copy(img)
-						-- cv.imshow{"img", padding_img[1]}
-						-- cv.waitKey {0}
-						local mean = padding_img:sum() / (width * height)
-						local padding_img = (padding_img - mean) / 100
-						imgs_type[type_idx] = padding_img
-						-- read the label into "labels_type"
-						local label_pathname = type_str .. "_set/" .. dirname .. "/" .. mysplit(filename, ".")[1] .. ".txt"
-						local label_file = assert(io.open(label_pathname, "r"))
-						local label = label_file:read()
-						-- print(label)
-						labels_type[type_idx] = get_label_by_str(label)
-						label_pathname_ary_type[type_idx] = label_pathname
-						type_idx = type_idx + 1
-					end
-				end
-			end
-		end
-	end
-	]]
-
 	for i = 1,table.getn(imgs_type) do
 		type_idx_ary[i] = i
 	end
 
-	print("Finish loading " .. type_str .. " data set.")
+	print("Finish loading " .. type_str .. " data set. (data size: " .. table.getn(imgs_type) .. ")")
 end
 
 function load_training_data()

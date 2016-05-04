@@ -1,3 +1,4 @@
+use_cuda = true
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -21,7 +22,7 @@ c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 -- Prepare the data
 load_training_data()
 load_test_data()
-
+	
 function showDataResult(img_idx, rank_num)
 	local ori_img = ori_imgs_type[img_idx]
 	local img = imgs_type[img_idx]
@@ -45,6 +46,7 @@ function showDataResult(img_idx, rank_num)
 
 	rank_num = rank_num or 3
 	rank_num = math.min(rank_num, 5)
+	pred_data = { }
 	for r = 1,rank_num do
 		local pred_str = "               "
 		for i = 1, table.getn(inputTable) do
@@ -52,12 +54,41 @@ function showDataResult(img_idx, rank_num)
 			pred[1][i][idx[1]] = -1e10
 			if (idx[1] == 1) then
 				pred_str = pred_str .. " "
+				if (r == 1) then
+					pred_data[i] = -1
+				end
 			else
 				pred_str = pred_str .. label_set[idx[1] - 1]
+				if (r == 1) then
+					pred_data[i] = idx[1] - 1
+				end
 			end
 		end
 		print(pred_str)
 	end
+
+	-- put the prediction results and the original image into one image
+	img_size = ori_img:size()
+	height = img_size[2]
+	width = img_size[3]
+	label_size = table.getn(label_set)
+	com_img = torch.Tensor(1, padding_height + (label_size + 1) * 3, width + 2 * horizon_pad):fill(255)
+	com_img
+		:narrow(3, horizon_pad + 1, width)
+		:narrow(2, math.max(0, math.ceil((padding_height - height) / 2)) + (label_size + 1) * 3, height)
+		:copy(ori_img)
+
+	local data_idx = 1
+	for i = 1, width + 2 * horizon_pad - window + 1, stride do
+		if (pred_data[data_idx] ~= -1) then
+			com_img[1][(pred_data[data_idx] - 1) * 3 + 1][i + (window - 1) / 2] = 0
+			com_img[1][(pred_data[data_idx] - 1) * 3 + 2][i + (window - 1) / 2] = 0
+			com_img[1][(pred_data[data_idx] - 1) * 3 + 3][i + (window - 1) / 2] = 0
+		end
+		data_idx = data_idx + 1
+	end
+
+	image.display(com_img)
 end
 
 function showTestResult(img_idx, rank_num)
@@ -244,3 +275,5 @@ function load_model(model_idx)
 	m = torch.load("models/" .. model_idx .. ".mdl")
 	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
+
+train_epoch(500)
