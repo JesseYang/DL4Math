@@ -15,6 +15,7 @@ stride = 1
 function get_label_by_str(label_str)
 	char_idx = 1
 	local result = { }
+	local with_interval = label_set[table.getn(label_set)] == 'k'
 	for c in label_str:gmatch(".") do
 		for i = 1,table.getn(label_set) do
 			if (label_set[i] == c) then
@@ -22,6 +23,13 @@ function get_label_by_str(label_str)
 			end
 		end
 		char_idx = char_idx + 1
+		if (with_interval) then
+			result[char_idx] = table.getn(label_set)
+			char_idx = char_idx + 1
+		end
+	end
+	if (with_interval) then
+		result[table.getn(result)] = nil
 	end
 	return result
 end
@@ -58,7 +66,7 @@ function load_data()
 						local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
 						padding_img
 							:narrow(3, horizon_pad + 1, width)
-							:narrow(2, math.max(0, math.ceil((padding_height - height) / 2)), height)
+							:narrow(2, math.max(1, math.ceil((padding_height - height) / 2)), height)
 							:copy(img)
 						-- cv.imshow{"img", padding_img[1]}
 						-- cv.waitKey {0}
@@ -67,6 +75,7 @@ function load_data()
 						imgs_type[type_idx] = padding_img
 						labels_type[type_idx] = get_label_by_str(label)
 						label_pathname_ary_type[type_idx] = label_filepath
+						prefix_ary_type[type_idx] = prefix
 						type_idx = type_idx + 1
 					end
 				end
@@ -87,12 +96,14 @@ function load_training_data()
 	labels_train = { }
 	train_idx_ary = { }
 	label_pathname_ary_train = { }
+	prefix_ary_train = { }
 
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	type_idx_ary = train_idx_ary
 	label_pathname_ary_type = label_pathname_ary_train
+	prefix_ary_type = prefix_ary_train
 	type_str = "training"
 
 	load_data()
@@ -106,12 +117,14 @@ function load_test_data()
 	labels_test = { }
 	test_idx_ary = { }
 	label_pathname_ary_test = { }
+	prefix_ary_test = { }
 
 	ori_imgs_type = ori_imgs_test
 	imgs_type = imgs_test
 	labels_type = labels_test
 	type_idx_ary = test_idx_ary
 	label_pathname_ary_type = label_pathname_ary_test
+	prefix_ary_type = prefix_ary_test
 	type_str = "test"
 
 	load_data()
