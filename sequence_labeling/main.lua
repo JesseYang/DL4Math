@@ -13,7 +13,7 @@ require 'data'
 require 'image'
 
 
-model_3()
+model_2()
 s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 -- c = nn.CTCCriterion()
@@ -45,7 +45,28 @@ function equal_table(t1, t2)
 	return true
 end
 
-function prefix_search_decode(pred)
+function softmax(pred)
+	local prob = pred:clone()
+	local size = pred:size()
+	local T = size[2]
+	local L = size[3] - 1
+	for t = 1, T do
+		local temp = { }
+		local sum = 0
+		for k = 1, L + 1 do
+			temp[k] = math.exp(pred[1][t][k])
+			sum = sum + temp[k]
+		end
+		for k = 1, L + 1 do
+			prob[1][t][k] = temp[k] / sum
+		end
+	end
+	return prob
+end
+
+function prefix_search_decode(pred_param)
+	local pred = pred_param:clone()
+
 	local size = pred:size()
 	local T = size[2]
 	local L = size[3] - 1
@@ -61,11 +82,16 @@ function prefix_search_decode(pred)
 		gamma_p_star_b[t] = i_star_prob
 	end
 	local p_star_prefix_prob = 1 - i_star_prob
-	local P = { }
-	P[p_star] = i_star_prob
+	-- local P = { }
+	-- P[p_star] = i_star_prob
 
 	while (p_star_prefix_prob > i_star_prob) do
 		local prob_remaining = p_star_prefix_prob
+		local p_prob_store = { }
+		local p_prefix_prob_store = { }
+		local gamma_p_n_store = { }
+		local gamma_p_b_store = { }
+		local P = { }
 		for k = 1, L do
 			-- append k to p_star to get p
 			local p = copy_table(p_star)
@@ -77,7 +103,7 @@ function prefix_search_decode(pred)
 			else
 				gamma_p_n[1] = 0
 			end
-			gamma_p_b = 0
+			gamma_p_b[1] = 0
 			local prefix_prob = gamma_p_n[1]
 			for t = 2, T do
 				local new_label_prob
@@ -88,10 +114,15 @@ function prefix_search_decode(pred)
 				end
 				gamma_p_n[t] = pred[1][t][k + 1] * (new_label_prob + gamma_p_n[t - 1])
 				gamma_p_b[t] = pred[1][t][1] * (gamma_p_b[t - 1] + gamma_p_n[t - 1])
-				prefix_prob = prefix_prob + pred[1][t][k + 1] * new_lable_prob
+				prefix_prob = prefix_prob + pred[1][t][k + 1] * new_label_prob
 			end
 			local p_prob = gamma_p_n[T] + gamma_p_b[T]
 			local p_prefix_prob = prefix_prob - p_prob
+			p_prob_store[p] = p_prob
+			p_prefix_prob_store[p] = p_prefix_prob
+			gamma_p_n_store[p] = gamma_p_n
+			gamma_p_b_store[p] = gamma_p_b
+
 			prob_remaining = prob_remaining - p_prefix_prob
 			if (p_prob > i_star_prob) then
 				-- i^* = p
@@ -105,28 +136,54 @@ function prefix_search_decode(pred)
 				break
 			end
 		end
+		--[[
 		for p in pairs(P) do
 			if (equal_table(p, p_star)) then
 				P[p] = nil
 			end
 		end
-		if (table.getn(P) == 0) then
-			break
-		end
+		]]
 		local p_prefix_prob = -1
 		for p in pairs(P) do
 			if (P[p] > p_prefix_prob) then
+				p_prefix_prob = P[p]
 				p_star = p
-				-- the p_star_prefix_prob, p_star_prob, gamma_p_star_n, and gamma_p_star_b also needs to be set
+				-- the p_star_prob, p_star_prefix_prob, gamma_p_star_n, and gamma_p_star_b also needs to be set
+				p_star_prob = p_prob_store[p]
+				p_star_prefix_prob = p_prefix_prob_store[p]
+				gamma_p_star_n = gamma_p_n_store[p]
+				gamma_p_star_b = gamma_p_b_store[p]
 			end
+		end
+		if (p_prefix_prob == -1) then
+			break
 		end
 	end
 
-	-- i_star is the result
-	return i_star
+	-- i_star is the result, convert to predicted string and return
+	local pred_str_ary = { }
+	for i = 1, table.getn(i_star) do
+		pred_str_ary[i] = label_set[i_star[i]]
+	end
+	return table.concat(pred_str_ary)
 end
 
-function showDataResult(img_idx, rank_num)
+function windowFilter(data)
+	local res = data:clone()
+	local size = res:size()
+	local T = size[2]
+	local K = size[3]
+	for t = 2, T - 1 do
+		for k = 1, K do
+			res[1][t][k] = (data[1][t-1][k] * 0.75 + data[1][t][k] * 1.5 + data[1][t+1][k] * 0.75) / 3
+		end
+	end
+	return res
+end
+
+function showDataResult(img_idx, filter)
+	filter = filter or false
+
 	local ori_img = ori_imgs_type[img_idx]
 	local img = imgs_type[img_idx]
 	local label = labels_type[img_idx]
@@ -135,9 +192,12 @@ function showDataResult(img_idx, rank_num)
 
 	local outputTable = s:forward(inputTable)
 	local input_size = table.getn(inputTable)
-	local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
 	for i = 1, table.getn(inputTable) do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
+	end
+	if (filter) then
+		pred = windowFilter(pred)
 	end
 	-- image.display(ori_img)
 	label_str = ""
@@ -146,16 +206,17 @@ function showDataResult(img_idx, rank_num)
 	end
 	print("Label File Name: " .. label_pathname_ary_type[img_idx])
 	print("Correct Label: " .. label_str)
+	print("Decoded Label: " .. prefix_search_decode(softmax(pred)))
 
-	rank_num = rank_num or 3
-	rank_num = math.min(rank_num, 5)
+	local rank_num = 3
 	pred_data = { }
 	pred_str_1 = ""
+	local pred_clone = pred:clone()
 	for r = 1,rank_num do
 		local pred_str = ""
 		for i = 1, table.getn(inputTable) do
-			local temp, idx = torch.max(pred[1][i], 1)
-			pred[1][i][idx[1]] = -1e10
+			local temp, idx = torch.max(pred_clone[1][i], 1)
+			pred_clone[1][i][idx[1]] = -1e10
 			if (idx[1] == 1) then
 				pred_str = pred_str .. " "
 				if (r == 1) then
@@ -173,6 +234,11 @@ function showDataResult(img_idx, rank_num)
 			pred_str_1 = pred_str
 		end
 	end
+	local idx_str = ""
+	for i = 1, table.getn(inputTable) do
+		idx_str = idx_str .. (i % 10)
+	end
+	print(idx_str)
 
 	-- put the prediction results and the original image into one image
 	img_size = ori_img:size()
@@ -195,6 +261,7 @@ function showDataResult(img_idx, rank_num)
 		data_idx = data_idx + 1
 	end
 
+	--[[
 	image.display(com_img)
 
 	for i = 1,table.getn(inputTable) do
@@ -205,17 +272,18 @@ function showDataResult(img_idx, rank_num)
 			break
 		end
 	end
+	]]
 end
 
-function showTestResult(img_idx, rank_num)
+function showTestResult(img_idx, filter)
 	ori_imgs_type = ori_imgs_test
 	imgs_type = imgs_test
 	labels_type = labels_test
 	label_pathname_ary_type = label_pathname_ary_test
-	return showDataResult(img_idx, rank_num)
+	return showDataResult(img_idx, filter)
 end
 
-function showTestResultByName(img_name, rank_num)
+function showTestResultByName(img_name, filter)
 	local img_idx = -1
 	for i=1,table.getn(prefix_ary_test) do
 		if (prefix_ary_test[i] == img_name) then
@@ -224,21 +292,21 @@ function showTestResultByName(img_name, rank_num)
 		end
 	end
 	if (img_idx ~= -1) then
-		showTestResult(img_idx, rank_num)
+		showTestResult(img_idx, filter)
 	else
 		print("Image does not exist")
 	end
 end
 
-function showTrainResult(img_idx, rank_num)
+function showTrainResult(img_idx, filter)
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	label_pathname_ary_type = label_pathname_ary_train
-	return showDataResult(img_idx, rank_num)
+	return showDataResult(img_idx, filter)
 end
 
-function showTrainResultByName(img_name, rank_num)
+function showTrainResultByName(img_name, filter)
 	local img_idx = -1
 	for i=1,table.getn(prefix_ary_train) do
 		if (prefix_ary_train[i] == img_name) then
@@ -247,13 +315,14 @@ function showTrainResultByName(img_name, rank_num)
 		end
 	end
 	if (img_idx ~= -1) then
-		showTrainResult(img_idx, rank_num)
+		showTrainResult(img_idx, filter)
 	else
 		print("Image does not exist")
 	end
 end
 
-function calDataErrRate()
+function calDataErrRate(filter)
+	filter = filter or false
 	print("Error rate on " .. type_str .. " set (image number: " .. table.getn(imgs_type) .. ")")
 	local err_num = 0
 	for img_idx = 1,table.getn(imgs_type) do
@@ -266,6 +335,9 @@ function calDataErrRate()
 		local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
 		for i = 1, table.getn(inputTable) do
 			pred[1][i] = torch.reshape(outputTable[i], 1, klass)
+		end
+		if (filter) then
+			pred = windowFilter(pred)
 		end
 
 		label_str = ""
@@ -300,20 +372,20 @@ function calDataErrRate()
 	print("Error rate: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
 end
 
-function calTestErrRate()
+function calTestErrRate(filter)
 	imgs_type = imgs_test
 	labels_type = labels_test
 	label_pathname_ary_type = label_pathname_ary_test
 	type_str = "test"
-	return calDataErrRate()
+	return calDataErrRate(filter)
 end
 
-function calTrainErrRate()
+function calTrainErrRate(filter)
 	imgs_type = imgs_train
 	labels_type = labels_train
 	label_pathname_ary_type = label_pathname_ary_train
 	type_str = "training"
-	return calDataErrRate()
+	return calDataErrRate(filter)
 end
 
 x, dl_dx = s:getParameters()
@@ -348,7 +420,7 @@ end
 
 -- sgd parameters
 sgd_params = {
-	learningRate = 1e-5,
+	learningRate = 1e-4,
 	learningRateDecay = 0,
 	weightDecay = 0,
 	momentum = 0.9
@@ -371,6 +443,7 @@ function train(time)
 	last_epoch = epoch or 0
 	star_num = star_num or 0
 	line_star = 80
+	local huge_error = false
 	for i =1,time do
 		evalCounter = evalCounter + 1
 		_, fs = optim.sgd(feval, x, sgd_params)
@@ -393,20 +466,30 @@ function train(time)
 			io.flush()
 		end
 		loss_ary[evalCounter] = fs[1]
+		if (loss_ary[evalCounter] > 1000000000) then
+			huge_error = true
+			print("HUGE ERROR! 111")
+			break
+		end
 	end
+	return huge_error
 end
 
 function train_epoch(epoch_num)
 	for e = 1, epoch_num do
 		nClock = os.clock() 
-		train(table.getn(imgs_train))
+		local huge_error = train(table.getn(imgs_train))
+		if (huge_error == true) then
+			print("HUGE ERROR! 222")
+			break
+		end
 		local elapse = torch.round((os.clock() - nClock) * 10) / 10
 
 		for j = star_num + 1, line_star do
 			io.write("=")
 		end
 		io.flush()
-		local loss_tensor = torch.Tensor(loss_ary)
+		loss_tensor = torch.Tensor(loss_ary)
 		local num = table.getn(imgs_train)
 		local loss_cur_epoch = loss_tensor:sub((last_epoch - 1) * num + 1, last_epoch * num):mean()
 		io.write(". Ave loss: " .. loss_cur_epoch .. ".")
@@ -425,5 +508,12 @@ function load_model(model_idx)
 	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
-load_model(27)
+-- m = torch.load("models/debug.mdl")
+-- s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+
+-- load_model(13)
+-- train_epoch(2)
+-- torch.save("models/debug.mdl", m)
+
+load_model(7)
 -- train_epoch(500)

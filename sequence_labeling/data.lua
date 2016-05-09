@@ -70,8 +70,9 @@ function load_data()
 							:copy(img)
 						-- cv.imshow{"img", padding_img[1]}
 						-- cv.waitKey {0}
-						local mean = padding_img:sum() / (width * height)
-						local padding_img = (padding_img - mean) / 100
+						-- local mean = padding_img:sum() / ((width + 2 * horizon_pad) * padding_height)
+						local mean = 123
+						local padding_img = (padding_img - mean) / 1000
 						imgs_type[type_idx] = padding_img
 						labels_type[type_idx] = get_label_by_str(label)
 						label_pathname_ary_type[type_idx] = label_filepath
@@ -144,12 +145,15 @@ function getInputTableFromImg(img)
 	local size = img:size()
 	local height = size[2]
 	local width = size[3]
+	local mean = 243
 
 	local inputTable = { }
 	for i = 1, width - window + 1, stride do
-		inputTable[1 + (i - 1) / stride] = use_cuda and 
+		local curInput = use_cuda and 
 			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
 			img:sub(1, 1, 1, height, i, i + window - 1)
+		-- inputTable[1 + (i - 1) / stride] = (curInput - mean) / 100
+		inputTable[1 + (i - 1) / stride] = curInput
 	end
 	return inputTable
 end
