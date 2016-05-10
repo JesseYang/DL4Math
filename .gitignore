@@ -22,3 +22,4 @@ sequence_labeling/test_set
 sequence_labeling/models
 sequence_labeling/loss*
 sequence_labeling/log*
+sequence_labeling/test.lua

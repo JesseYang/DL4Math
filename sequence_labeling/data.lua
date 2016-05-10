@@ -81,7 +81,6 @@ function load_data()
 					end
 				end
 			end
-			break
 		end
 	end
 
@@ -142,6 +141,10 @@ function toySample()
 	return inputTable, label
 end
 
+function getInputSize(inputTable)
+	return use_rnn and table.getn(inputTable[1]) or table.getn(inputTable)
+end
+
 function extractFeature(img)
 	local size = img:size()
 	local height = size[2]
@@ -149,46 +152,57 @@ function extractFeature(img)
 
 	local featureTable = { }
 	local featureTableRev = { }
-	local feature_len = 18
-	for i = 1, width do
-		--[[
-		local feature = torch.CudaTensor(1, feature_len):fill(0)
-		local feature_rev = torch.CudaTensor(1, feature_len):fill(0)
-		local change_num = 0
-		local last = 255
-		local cur_num = 0
-		local cur_idx = 1
-		for j = 1, height do
-			if (img[1][j][i] ~= last) then
+	if (feature_len ~= padding_height) then
+		for i = 1, width do
+			local feature = torch.CudaTensor(1, feature_len):fill(0)
+			local feature_rev = torch.CudaTensor(1, feature_len):fill(0)
+			local change_num = 0
+			local last = 255
+			local cur_num = 0
+			local cur_idx = 1
+			for j = 1, height do
+				if (img[1][j][i] ~= last) then
+					feature[1][cur_idx] = cur_num / height
+					feature_rev[1][cur_idx] = cur_num / height
+					cur_idx = cur_idx + 1
+					cur_num = 1
+					if (cur_idx > feature_len) then
+						print("TOO MANY TRANSITIONS!!!")
+						break
+					end
+				else
+					cur_num = cur_num + 1
+				end
+				last = img[1][j][i]
+			end
+			if (cur_idx > feature_len) then
+				print("TOO MANY TRANSITIONS!!!")
+			else
 				feature[1][cur_idx] = cur_num / height
 				feature_rev[1][cur_idx] = cur_num / height
-				cur_idx = cur_idx + 1
-				cur_num = 1
-				if (cur_idx > feature_len) then
-					print("TOO MANY TRANSITIONS!!!")
-					break
-				end
-			else
-				cur_num = cur_num + 1
 			end
-			last = img[1][j][i]
+			featureTable[i] = feature
+			featureTableRev[width - i + 1] = feature_rev
 		end
-		if (cur_idx > feature_len) then
-			print("TOO MANY TRANSITIONS!!!")
-		else
-			feature[1][cur_idx] = cur_num / height
-			feature_rev[1][cur_idx] = cur_num / height
+	else
+		for i = 1, width do
+			local feature = torch.CudaTensor(1, feature_len):fill(0)
+			local feature_rev = torch.CudaTensor(1, feature_len):fill(0)
+			for j = 1, height do
+				feature[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
+				feature_rev[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
+			end
+			featureTable[i] = feature
+			featureTableRev[width - i + 1] = feature_rev
 		end
-		featureTable[i] = feature
-		featureTableRev[width - i + 1] = feature_rev
-		]]
-		featureTable[i] = (torch.rand(1, feature_len) - 0.5)--:cuda()
-		featureTableRev[i] = (torch.rand(1, feature_len) - 0.5)--:cuda()
 	end
 	return { featureTable, featureTableRev }
 end
 
 function getInputTableFromImg(img)
+	if (use_rnn) then
+		return extractFeature(img)
+	end
 	local size = img:size()
 	local height = size[2]
 	local width = size[3]
@@ -218,7 +232,7 @@ function nextSample()
 
 	train_idx = (train_idx == table.getn(imgs_train)) and 1 or (train_idx + 1)
 
-	local inputTable = use_rnn == true and extractFeature(img) or getInputTableFromImg(img)
+	local inputTable = getInputTableFromImg(img)
 	return inputTable, label
 end
 

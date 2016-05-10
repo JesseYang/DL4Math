@@ -1,4 +1,4 @@
-use_cuda = false
+use_cuda = true
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -14,20 +14,11 @@ require 'image'
 
 
 model_4()
-if (use_rnn == true) then
-	s = use_cuda == true and rnn:cuda() or rnn
-else
-	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
-end
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
--- c = nn.CTCCriterion()
 
 -- Prepare the data
 load_training_data()
 load_test_data()
-
-function best_path_decode(pred)
-end
 
 function copy_table(t)
 	local res = { }
@@ -172,36 +163,20 @@ function prefix_search_decode(pred_param)
 	return table.concat(pred_str_ary)
 end
 
-function windowFilter(data)
-	local res = data:clone()
-	local size = res:size()
-	local T = size[2]
-	local K = size[3]
-	for t = 2, T - 1 do
-		for k = 1, K do
-			res[1][t][k] = (data[1][t-1][k] * 0.75 + data[1][t][k] * 1.5 + data[1][t+1][k] * 0.75) / 3
-		end
-	end
-	return res
-end
-
-function showDataResult(img_idx, filter)
-	filter = filter or false
+function showDataResult(img_idx)
 
 	local ori_img = ori_imgs_type[img_idx]
 	local img = imgs_type[img_idx]
 	local label = labels_type[img_idx]
 
 	local inputTable = getInputTableFromImg(img)
+	local input_size = getInputSize(inputTable)
+
 
 	local outputTable = s:forward(inputTable)
-	local input_size = table.getn(inputTable)
 	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
-	for i = 1, table.getn(inputTable) do
+	for i = 1, input_size do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
-	end
-	if (filter) then
-		pred = windowFilter(pred)
 	end
 	-- image.display(ori_img)
 	label_str = ""
@@ -218,7 +193,7 @@ function showDataResult(img_idx, filter)
 	local pred_clone = pred:clone()
 	for r = 1,rank_num do
 		local pred_str = ""
-		for i = 1, table.getn(inputTable) do
+		for i = 1, input_size do
 			local temp, idx = torch.max(pred_clone[1][i], 1)
 			pred_clone[1][i][idx[1]] = -1e10
 			if (idx[1] == 1) then
@@ -239,12 +214,13 @@ function showDataResult(img_idx, filter)
 		end
 	end
 	local idx_str = ""
-	for i = 1, table.getn(inputTable) do
+	for i = 1, input_size do
 		idx_str = idx_str .. (i % 10)
 	end
 	print(idx_str)
 
 	-- put the prediction results and the original image into one image
+	--[[
 	img_size = ori_img:size()
 	height = img_size[2]
 	width = img_size[3]
@@ -265,7 +241,6 @@ function showDataResult(img_idx, filter)
 		data_idx = data_idx + 1
 	end
 
-	--[[
 	image.display(com_img)
 
 	for i = 1,table.getn(inputTable) do
@@ -279,15 +254,15 @@ function showDataResult(img_idx, filter)
 	]]
 end
 
-function showTestResult(img_idx, filter)
+function showTestResult(img_idx)
 	ori_imgs_type = ori_imgs_test
 	imgs_type = imgs_test
 	labels_type = labels_test
 	label_pathname_ary_type = label_pathname_ary_test
-	return showDataResult(img_idx, filter)
+	return showDataResult(img_idx)
 end
 
-function showTestResultByName(img_name, filter)
+function showTestResultByName(img_name)
 	local img_idx = -1
 	for i=1,table.getn(prefix_ary_test) do
 		if (prefix_ary_test[i] == img_name) then
@@ -296,21 +271,21 @@ function showTestResultByName(img_name, filter)
 		end
 	end
 	if (img_idx ~= -1) then
-		showTestResult(img_idx, filter)
+		showTestResult(img_idx)
 	else
 		print("Image does not exist")
 	end
 end
 
-function showTrainResult(img_idx, filter)
+function showTrainResult(img_idx)
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	label_pathname_ary_type = label_pathname_ary_train
-	return showDataResult(img_idx, filter)
+	return showDataResult(img_idx)
 end
 
-function showTrainResultByName(img_name, filter)
+function showTrainResultByName(img_name)
 	local img_idx = -1
 	for i=1,table.getn(prefix_ary_train) do
 		if (prefix_ary_train[i] == img_name) then
@@ -319,14 +294,13 @@ function showTrainResultByName(img_name, filter)
 		end
 	end
 	if (img_idx ~= -1) then
-		showTrainResult(img_idx, filter)
+		showTrainResult(img_idx)
 	else
 		print("Image does not exist")
 	end
 end
 
-function calDataErrRate(filter)
-	filter = filter or false
+function calDataErrRate()
 	print("Error rate on " .. type_str .. " set (image number: " .. table.getn(imgs_type) .. ")")
 	local err_num = 0
 	for img_idx = 1,table.getn(imgs_type) do
@@ -335,13 +309,10 @@ function calDataErrRate(filter)
 
 		local inputTable = getInputTableFromImg(img)
 		local outputTable = s:forward(inputTable)
-		local input_size = table.getn(inputTable)
+		local input_size = getInputSize(inputTable)
 		local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
-		for i = 1, table.getn(inputTable) do
+		for i = 1, input_size do
 			pred[1][i] = torch.reshape(outputTable[i], 1, klass)
-		end
-		if (filter) then
-			pred = windowFilter(pred)
 		end
 
 		label_str = ""
@@ -352,7 +323,7 @@ function calDataErrRate(filter)
 		local pred_str_ary = { }
 		local pred_idx = 1
 		local last_c = ""
-		for i = 1, table.getn(inputTable) do
+		for i = 1, input_size do
 			local temp, idx = torch.max(pred[1][i], 1)
 			pred[1][i][idx[1]] = -1e10
 			if (idx[1] ~= 1) then
@@ -376,20 +347,20 @@ function calDataErrRate(filter)
 	print("Error rate: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
 end
 
-function calTestErrRate(filter)
+function calTestErrRate()
 	imgs_type = imgs_test
 	labels_type = labels_test
 	label_pathname_ary_type = label_pathname_ary_test
 	type_str = "test"
-	return calDataErrRate(filter)
+	return calDataErrRate()
 end
 
-function calTrainErrRate(filter)
+function calTrainErrRate()
 	imgs_type = imgs_train
 	labels_type = labels_train
 	label_pathname_ary_type = label_pathname_ary_train
 	type_str = "training"
-	return calDataErrRate(filter)
+	return calDataErrRate()
 end
 
 x, dl_dx = s:getParameters()
@@ -405,15 +376,9 @@ feval = function(x_new)
 	-- forward of model
 	outputTable = s:forward(inputTable)
 	-- change the format of output of the nn.Sequencer to match the format of input of CTCCriterion
-	-- local input_size = table.getn(inputTable)
-	local input_size
-	if (use_rnn == true) then
-		input_size = table.getn(inputTable[1])
-	else
-		input_size = table.getn(inputTable)
-	end
+	local input_size = getInputSize(inputTable)
 	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
-	for i = 1, table.getn(inputTable) do
+	for i = 1, input_size do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 	end
 	-- forward and backward of criterion
@@ -422,7 +387,11 @@ feval = function(x_new)
 	-- change the format of gradInput of the CTCCriterion to match the format of output of nn.Sequencer
 	gradOutputTable = { }
 	for i = 1, input_size do
-		gradOutputTable[i] = torch.reshape(gradCTC[1][i], 1, klass)
+		if (use_rnn) then
+			gradOutputTable[i] = torch.reshape(gradCTC[1][i], 1, klass)
+		else
+			gradOutputTable[i] = torch.reshape(gradCTC[1][i], klass)
+		end
 	end
 	s:backward(inputTable, gradOutputTable)
 	return loss_x, dl_dx
@@ -430,7 +399,7 @@ end
 
 -- sgd parameters
 sgd_params = {
-	learningRate = 1e-4,
+	learningRate = 1e-3,
 	learningRateDecay = 0,
 	weightDecay = 0,
 	momentum = 0.9
@@ -456,8 +425,8 @@ function train(time)
 	local huge_error = false
 	for i =1,time do
 		evalCounter = evalCounter + 1
-		_, fs = optim.sgd(feval, x, sgd_params)
-		-- _, fs = optim.adadelta(feval, x, adadelta_params, state)
+		-- _, fs = optim.sgd(feval, x, sgd_params)
+		_, fs = optim.adadelta(feval, x, adadelta_params, state)
 		if (i % 1 == 0) then
 			if (last_epoch ~= epoch) then
 				star_num = 0
@@ -500,7 +469,7 @@ function train_epoch(epoch_num)
 		end
 		io.flush()
 		loss_tensor = torch.Tensor(loss_ary)
-		local num = table.getn(imgs_train)
+		num = table.getn(imgs_train)
 		local loss_cur_epoch = loss_tensor:sub((last_epoch - 1) * num + 1, last_epoch * num):mean()
 		io.write(". Ave loss: " .. loss_cur_epoch .. ".")
 		loss_epoch[epoch] = loss_cur_epoch
@@ -526,4 +495,4 @@ end
 -- torch.save("models/debug.mdl", m)
 
 -- load_model(7)
--- train_epoch(500)
+train_epoch(500)

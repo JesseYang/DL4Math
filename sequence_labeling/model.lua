@@ -12,6 +12,8 @@ function model_0()
 	m = nn.Sequential()
 	m:add(nn.SpatialConvolution(1, 5, 3, 3))
 	m:add(nn.Reshape(5))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
 function model_1()
@@ -40,6 +42,8 @@ function model_1()
 	-- last stage: standard 1-layer mlp
 	m:add(nn.Reshape(64 * 3 * 3))
 	m:add(nn.Linear(64 * 3 * 3, klass))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
 function model_2()
@@ -67,6 +71,8 @@ function model_2()
 	-- last stage: standard 1-layer mlp
 	m:add(nn.Reshape(64 * 10 * 5))
 	m:add(nn.Linear(64 * 10 * 5, klass))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
 function model_3()
@@ -94,21 +100,23 @@ function model_3()
 	-- last stage: standard 1-layer mlp
 	m:add(nn.Reshape(64 * 10 * 5))
 	m:add(nn.Linear(64 * 10 * 5, klass))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
 function model_4()
 	-- the rnn model
 	use_rnn = true
-	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":", "k" }
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
-	feature_len = 18
+	feature_len = padding_height
 	hidden_size = 100
 
-	fwd = nn.LSTM(feature_len, hidden_size, 5)
+	fwd = nn.LSTM(feature_len, hidden_size)
 	fwdSeq = nn.Sequencer(fwd)
-	bwd = nn.LSTM(feature_len, hidden_size, 5)
+	bwd = nn.LSTM(feature_len, hidden_size)
 	bwdSeq = nn.Sequencer(bwd)
 	merge = nn.JoinTable(1, 1)
 	mergeSeq = nn.Sequencer(merge)
@@ -122,5 +130,7 @@ function model_4()
 
 	rnn = nn.Sequential()
 		:add(brnn) 
-		:add(nn.Sequencer(nn.MaskZero(nn.Linear(hidden_size*2, klass), 1))) -- times two due to JoinTable
+		:add(nn.Sequencer(nn.Linear(hidden_size * 2, klass), 1)) -- times two due to JoinTable
+
+	s = use_cuda == true and rnn:cuda() or rnn
 end
