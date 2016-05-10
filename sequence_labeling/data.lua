@@ -63,16 +63,16 @@ function load_data()
 						ori_imgs_type[type_idx] = img:clone()
 						img = img:float()
 						-- padding the img to the height padding_height
-						local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
+						local padding_img
+						padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
 						padding_img
 							:narrow(3, horizon_pad + 1, width)
 							:narrow(2, math.max(1, math.ceil((padding_height - height) / 2)), height)
 							:copy(img)
 						-- cv.imshow{"img", padding_img[1]}
 						-- cv.waitKey {0}
-						-- local mean = padding_img:sum() / ((width + 2 * horizon_pad) * padding_height)
-						local mean = 123
-						local padding_img = (padding_img - mean) / 1000
+						-- local mean = 123
+						-- local padding_img = (padding_img - mean) / 1000
 						imgs_type[type_idx] = padding_img
 						labels_type[type_idx] = get_label_by_str(label)
 						label_pathname_ary_type[type_idx] = label_filepath
@@ -81,6 +81,7 @@ function load_data()
 					end
 				end
 			end
+			break
 		end
 	end
 
@@ -141,19 +142,64 @@ function toySample()
 	return inputTable, label
 end
 
+function extractFeature(img)
+	local size = img:size()
+	local height = size[2]
+	local width = size[3]
+
+	local featureTable = { }
+	local featureTableRev = { }
+	local feature_len = 18
+	for i = 1, width do
+		--[[
+		local feature = torch.CudaTensor(1, feature_len):fill(0)
+		local feature_rev = torch.CudaTensor(1, feature_len):fill(0)
+		local change_num = 0
+		local last = 255
+		local cur_num = 0
+		local cur_idx = 1
+		for j = 1, height do
+			if (img[1][j][i] ~= last) then
+				feature[1][cur_idx] = cur_num / height
+				feature_rev[1][cur_idx] = cur_num / height
+				cur_idx = cur_idx + 1
+				cur_num = 1
+				if (cur_idx > feature_len) then
+					print("TOO MANY TRANSITIONS!!!")
+					break
+				end
+			else
+				cur_num = cur_num + 1
+			end
+			last = img[1][j][i]
+		end
+		if (cur_idx > feature_len) then
+			print("TOO MANY TRANSITIONS!!!")
+		else
+			feature[1][cur_idx] = cur_num / height
+			feature_rev[1][cur_idx] = cur_num / height
+		end
+		featureTable[i] = feature
+		featureTableRev[width - i + 1] = feature_rev
+		]]
+		featureTable[i] = (torch.rand(1, feature_len) - 0.5)--:cuda()
+		featureTableRev[i] = (torch.rand(1, feature_len) - 0.5)--:cuda()
+	end
+	return { featureTable, featureTableRev }
+end
+
 function getInputTableFromImg(img)
 	local size = img:size()
 	local height = size[2]
 	local width = size[3]
-	local mean = 243
+	local mean = 123
 
 	local inputTable = { }
 	for i = 1, width - window + 1, stride do
 		local curInput = use_cuda and 
 			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
 			img:sub(1, 1, 1, height, i, i + window - 1)
-		-- inputTable[1 + (i - 1) / stride] = (curInput - mean) / 100
-		inputTable[1 + (i - 1) / stride] = curInput
+		inputTable[1 + (i - 1) / stride] = (curInput - mean) / 1000
 	end
 	return inputTable
 end
@@ -172,7 +218,7 @@ function nextSample()
 
 	train_idx = (train_idx == table.getn(imgs_train)) and 1 or (train_idx + 1)
 
-	local inputTable = getInputTableFromImg(img)
+	local inputTable = use_rnn == true and extractFeature(img) or getInputTableFromImg(img)
 	return inputTable, label
 end
 

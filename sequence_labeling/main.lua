@@ -1,4 +1,4 @@
-use_cuda = true
+use_cuda = false
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -13,8 +13,12 @@ require 'data'
 require 'image'
 
 
-model_2()
-s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+model_4()
+if (use_rnn == true) then
+	s = use_cuda == true and rnn:cuda() or rnn
+else
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+end
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 -- c = nn.CTCCriterion()
 
@@ -401,7 +405,13 @@ feval = function(x_new)
 	-- forward of model
 	outputTable = s:forward(inputTable)
 	-- change the format of output of the nn.Sequencer to match the format of input of CTCCriterion
-	local input_size = table.getn(inputTable)
+	-- local input_size = table.getn(inputTable)
+	local input_size
+	if (use_rnn == true) then
+		input_size = table.getn(inputTable[1])
+	else
+		input_size = table.getn(inputTable)
+	end
 	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
 	for i = 1, table.getn(inputTable) do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
@@ -411,8 +421,8 @@ feval = function(x_new)
 	gradCTC = c:backward(pred, target)
 	-- change the format of gradInput of the CTCCriterion to match the format of output of nn.Sequencer
 	gradOutputTable = { }
-	for i = 1, table.getn(inputTable) do
-		gradOutputTable[i] = torch.reshape(gradCTC[1][i], klass)
+	for i = 1, input_size do
+		gradOutputTable[i] = torch.reshape(gradCTC[1][i], 1, klass)
 	end
 	s:backward(inputTable, gradOutputTable)
 	return loss_x, dl_dx
@@ -515,5 +525,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
-load_model(7)
+-- load_model(7)
 -- train_epoch(500)

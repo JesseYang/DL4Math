@@ -1,6 +1,7 @@
 require 'torch'
 require 'nn'
 require 'nnx'
+require 'rnn'
 
 
 -- model_0 is a toy model
@@ -93,4 +94,33 @@ function model_3()
 	-- last stage: standard 1-layer mlp
 	m:add(nn.Reshape(64 * 10 * 5))
 	m:add(nn.Linear(64 * 10 * 5, klass))
+end
+
+function model_4()
+	-- the rnn model
+	use_rnn = true
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":", "k" }
+	klass = table.getn(label_set) + 1
+	padding_height = 80
+	horizon_pad = 0
+	feature_len = 18
+	hidden_size = 100
+
+	fwd = nn.LSTM(feature_len, hidden_size, 5)
+	fwdSeq = nn.Sequencer(fwd)
+	bwd = nn.LSTM(feature_len, hidden_size, 5)
+	bwdSeq = nn.Sequencer(bwd)
+	merge = nn.JoinTable(1, 1)
+	mergeSeq = nn.Sequencer(merge)
+
+	parallel = nn.ParallelTable()
+	parallel:add(fwdSeq):add(bwdSeq)
+	brnn = nn.Sequential()
+		:add(parallel)
+		:add(nn.ZipTable())
+		:add(mergeSeq)
+
+	rnn = nn.Sequential()
+		:add(brnn) 
+		:add(nn.Sequencer(nn.MaskZero(nn.Linear(hidden_size*2, klass), 1))) -- times two due to JoinTable
 end
