@@ -152,56 +152,46 @@ function extractFeature(img)
 
 	local featureTable = { }
 	local featureTableRev = { }
-	if (feature_len ~= padding_height) then
-		for i = 1, width do
-			local feature = torch.CudaTensor(1, feature_len):fill(0)
-			local feature_rev = torch.CudaTensor(1, feature_len):fill(0)
-			local change_num = 0
-			local last = 255
-			local cur_num = 0
-			local cur_idx = 1
-			for j = 1, height do
-				if (img[1][j][i] ~= last) then
-					feature[1][cur_idx] = cur_num / height
-					feature_rev[1][cur_idx] = cur_num / height
-					cur_idx = cur_idx + 1
-					cur_num = 1
-					if (cur_idx > feature_len) then
-						print("TOO MANY TRANSITIONS!!!")
-						break
-					end
-				else
-					cur_num = cur_num + 1
-				end
-				last = img[1][j][i]
-			end
-			if (cur_idx > feature_len) then
-				print("TOO MANY TRANSITIONS!!!")
-			else
-				feature[1][cur_idx] = cur_num / height
-				feature_rev[1][cur_idx] = cur_num / height
-			end
-			featureTable[i] = feature
-			featureTableRev[width - i + 1] = feature_rev
+	for i = 1, width do
+		local feature = torch.Tensor(1, feature_len):fill(0)
+		feature = use_cuda and feature:cuda() or feature
+		local feature_rev = torch.Tensor(1, feature_len):fill(0)
+		feature_rev = use_cuda and feature_rev:cuda() or feature_rev
+		for j = 1, height do
+			feature[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
+			feature_rev[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
 		end
-	else
-		for i = 1, width do
-			local feature = torch.CudaTensor(1, feature_len):fill(0)
-			local feature_rev = torch.CudaTensor(1, feature_len):fill(0)
-			for j = 1, height do
-				feature[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
-				feature_rev[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
-			end
-			featureTable[i] = feature
-			featureTableRev[width - i + 1] = feature_rev
-		end
+		featureTable[i] = feature
+		featureTableRev[width - i + 1] = feature_rev
 	end
 	return { featureTable, featureTableRev }
 end
 
+function extractMixedFeature(img)
+	local size = img:size()
+	local height = size[2]
+	local width = size[3]
+	local mean = 123
+
+	local inputTable = { }
+	local inputTableRev = { }
+	for i = 1, width - 3 do
+		local curInput = use_cuda and 
+			img:sub(1, 1, 1, height, i, i + 3):cuda() or
+			img:sub(1, 1, 1, height, i, i + 3)
+		inputTable[i] = (curInput - mean) / 1000
+		inputTableRev[width - 3 - i + 1] = (curInput - mean) / 1000
+	end
+	return { inputTable, inputTableRev }
+end
+
 function getInputTableFromImg(img)
 	if (use_rnn) then
-		return extractFeature(img)
+		if (use_mixed) then
+			return extractMixedFeature(img)
+		else
+			return extractFeature(img)
+		end
 	end
 	local size = img:size()
 	local height = size[2]

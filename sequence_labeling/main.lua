@@ -13,7 +13,7 @@ require 'data'
 require 'image'
 
 
-model_4()
+model_5()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 
 -- Prepare the data
@@ -477,14 +477,57 @@ function train_epoch(epoch_num)
 		io.write("\n")
 
 		-- save the model file
-		torch.save("models/" .. epoch .. ".mdl", m)
+		if (use_mixed == true) then
+			torch.save("models/" .. epoch .. "_m.mdl", m)
+			torch.save("models/" .. epoch .. "_l1.mdl", l1)
+			torch.save("models/" .. epoch .. "_l2.mdl", l2)
+			torch.save("models/" .. epoch .. "_o.mdl", o)
+		else
+			torch.save("models/" .. epoch .. ".mdl", use_rnn and s or m)
+		end
 	end
 end
 
 function load_model(model_idx)
-	m = torch.load("models/" .. model_idx .. ".mdl")
-	x, dl_dx = m:getParameters()
-	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+	if (use_mixed == true) then
+		m = torch.load("models/" .. model_idx .. "_m.mdl")
+		l1 = torch.load("models/" .. model_idx .. "_l1.mdl")
+		l2 = torch.load("models/" .. model_idx .. "_l2.mdl")
+		o = torch.load("models/" .. model_idx .. "_o.mdl")
+
+		fwd = nn.Sequential()
+			:add(m)
+			:add(l1)
+		fwdSeq = nn.Sequencer(fwd)
+		bwd = nn.Sequential()
+			:add(m)
+			:add(l2)
+		bwdSeq = nn.Sequencer(bwd)
+		merge = nn.JoinTable(1, 1)
+		mergeSeq = nn.Sequencer(merge)
+
+		parallel = nn.ParallelTable()
+		parallel:add(fwdSeq):add(bwdSeq)
+		brnn = nn.Sequential()
+			:add(parallel)
+			:add(nn.ZipTable())
+			:add(mergeSeq)
+
+		rnn = nn.Sequential()
+			:add(brnn) 
+			:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
+
+		s = use_cuda == true and rnn:cuda() or rnn
+		x, dl_dx = s:getParameters()
+	else
+		m = torch.load("models/" .. model_idx .. ".mdl")
+		x, dl_dx = m:getParameters()
+		if (use_rnn) then
+			s = m
+		else
+			s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+		end
+	end
 end
 
 -- m = torch.load("models/debug.mdl")
@@ -494,5 +537,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
--- load_model(7)
+-- load_model(46)
 train_epoch(500)
