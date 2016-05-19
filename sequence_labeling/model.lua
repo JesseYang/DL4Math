@@ -46,6 +46,38 @@ function model_1()
 	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
+function model_2_prime()
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	klass = table.getn(label_set) + 1
+	ksize = 5
+	window = 40
+	padding_height = 80
+
+	horizon_pad = 20
+
+	m = nn.Sequential()
+	-- first stage
+	m:add(nn.SpatialConvolution(1, 16, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.SpatialBatchNormalization(16))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- second stage
+	m:add(nn.SpatialConvolution(16, 32, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.SpatialBatchNormalization(32))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- third stage
+	m:add(nn.SpatialConvolution(32, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.SpatialBatchNormalization(64))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- last stage: standard 1-layer mlp
+	m:add(nn.Reshape(64 * 10 * 5))
+	m:add(nn.Linear(64 * 10 * 5, klass))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+end
+
 function model_2()
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
@@ -104,19 +136,27 @@ function model_3()
 	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
-function model_4()
+function model_6()
 	-- the rnn model
 	use_rnn = true
+	use_mixed = true
+	use_pre_train = true
+	pre_train = nn.Sequencer(torch.load("models/pre_train.mdl"))
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
+	window = 40
 	padding_height = 80
-	horizon_pad = 0
-	feature_len = padding_height
-	hidden_size = 100
+	horizon_pad = 20
+	feature_len = 3200
+	hidden_size = 200
 
-	fwd = nn.LSTM(feature_len, hidden_size)
+	l1 = nn.LSTM(feature_len, hidden_size)
+	l2 = nn.LSTM(feature_len, hidden_size)
+	o = nn.Linear(hidden_size * 2, klass)
+
+	fwd = l1
 	fwdSeq = nn.Sequencer(fwd)
-	bwd = nn.LSTM(feature_len, hidden_size)
+	bwd = l2
 	bwdSeq = nn.Sequencer(bwd)
 	merge = nn.JoinTable(1, 1)
 	mergeSeq = nn.Sequencer(merge)
@@ -130,7 +170,42 @@ function model_4()
 
 	rnn = nn.Sequential()
 		:add(brnn) 
-		:add(nn.Sequencer(nn.Linear(hidden_size * 2, klass), 1)) -- times two due to JoinTable
+		:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
+
+	s = use_cuda == true and rnn:cuda() or rnn
+end
+
+function model_4()
+	-- the rnn model
+	use_rnn = true
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	klass = table.getn(label_set) + 1
+	padding_height = 80
+	horizon_pad = 0
+	feature_len = padding_height
+	hidden_size = 200
+
+	l1 = nn.LSTM(feature_len, hidden_size)
+	l2 = nn.LSTM(feature_len, hidden_size)
+	o = nn.Linear(hidden_size * 2, klass)
+
+	fwd = l1
+	fwdSeq = nn.Sequencer(fwd)
+	bwd = l2
+	bwdSeq = nn.Sequencer(bwd)
+	merge = nn.JoinTable(1, 1)
+	mergeSeq = nn.Sequencer(merge)
+
+	parallel = nn.ParallelTable()
+	parallel:add(fwdSeq):add(bwdSeq)
+	brnn = nn.Sequential()
+		:add(parallel)
+		:add(nn.ZipTable())
+		:add(mergeSeq)
+
+	rnn = nn.Sequential()
+		:add(brnn) 
+		:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
 
 	s = use_cuda == true and rnn:cuda() or rnn
 end
@@ -142,26 +217,27 @@ function model_5()
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
-	horizon_pad = 0
-	feature_len = padding_height
+	horizon_pad = 10
+	feature_len = 640
 	hidden_size = 100
+	window = 27
 
 	ksize = 3
 	m = nn.Sequential()
 	-- first stage
-	m:add(nn.SpatialConvolution(1, 4, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.SpatialConvolution(1, 16, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
 	m:add(nn.ReLU())
-	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	m:add(nn.SpatialMaxPooling(3, 2, 3, 2))
 	-- second stage
-	m:add(nn.SpatialConvolution(4, 8, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.SpatialConvolution(16, 32, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
 	m:add(nn.ReLU())
-	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	m:add(nn.SpatialMaxPooling(3, 2, 3, 2))
 	-- third stage
-	m:add(nn.SpatialConvolution(8, 8, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.SpatialConvolution(32, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
 	m:add(nn.ReLU())
-	m:add(nn.SpatialMaxPooling(1, 2, 1, 2))
+	m:add(nn.SpatialMaxPooling(3, 2, 3, 2))
 	-- reshape
-	m:add(nn.Reshape(1, 80))
+	m:add(nn.Reshape(1, feature_len))
 
 	l1 = nn.LSTM(feature_len, hidden_size)
 	l2 = nn.LSTM(feature_len, hidden_size)

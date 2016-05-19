@@ -13,7 +13,7 @@ require 'data'
 require 'image'
 
 
-model_5()
+model_2_prime()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 
 -- Prepare the data
@@ -366,28 +366,32 @@ end
 x, dl_dx = s:getParameters()
 
 feval = function(x_new)
+	error_occur = false
 	if x ~= x_new then
 		x:copy(x_new)
 	end
 	-- inputTable, target = toySample()
-	inputTable, target = nextSample()
+	local inputTable, target = nextSample()
 
 	dl_dx:zero()
 	-- forward of model
-	outputTable = s:forward(inputTable)
+	local outputTable = s:forward(inputTable)
 	-- change the format of output of the nn.Sequencer to match the format of input of CTCCriterion
 	local input_size = getInputSize(inputTable)
-	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
 	for i = 1, input_size do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 	end
 	-- forward and backward of criterion
-	loss_x = c:forward(pred, target)
-	gradCTC = c:backward(pred, target)
+	local loss_x = c:forward(pred, target)
+	if (loss_x == Inf) then
+		error_occur = true
+	end
+	local gradCTC = c:backward(pred, target)
 	-- change the format of gradInput of the CTCCriterion to match the format of output of nn.Sequencer
-	gradOutputTable = { }
+	local gradOutputTable = { }
 	for i = 1, input_size do
-		if (use_rnn) then
+		if (use_rnn and use_pre_train ~= true) then
 			gradOutputTable[i] = torch.reshape(gradCTC[1][i], 1, klass)
 		else
 			gradOutputTable[i] = torch.reshape(gradCTC[1][i], klass)
@@ -399,7 +403,7 @@ end
 
 -- sgd parameters
 sgd_params = {
-	learningRate = 1e-3,
+	learningRate = 1e-4,
 	learningRateDecay = 0,
 	weightDecay = 0,
 	momentum = 0.9
@@ -427,6 +431,9 @@ function train(time)
 		evalCounter = evalCounter + 1
 		-- _, fs = optim.sgd(feval, x, sgd_params)
 		_, fs = optim.adadelta(feval, x, adadelta_params, state)
+		if (error_occur == true) then
+			break
+		end
 		if (i % 1 == 0) then
 			if (last_epoch ~= epoch) then
 				star_num = 0
@@ -458,6 +465,10 @@ function train_epoch(epoch_num)
 	for e = 1, epoch_num do
 		nClock = os.clock() 
 		local huge_error = train(table.getn(imgs_train))
+		if (error_occur == true) then
+			print("INF LOSS!")
+			break
+		end
 		if (huge_error == true) then
 			print("HUGE ERROR! 222")
 			break
@@ -477,31 +488,47 @@ function train_epoch(epoch_num)
 		io.write("\n")
 
 		-- save the model file
-		if (use_mixed == true) then
-			torch.save("models/" .. epoch .. "_m.mdl", m)
-			torch.save("models/" .. epoch .. "_l1.mdl", l1)
-			torch.save("models/" .. epoch .. "_l2.mdl", l2)
-			torch.save("models/" .. epoch .. "_o.mdl", o)
-		else
-			torch.save("models/" .. epoch .. ".mdl", use_rnn and s or m)
+		if (epoch % 5 == 1) then
+			save_model(epoch)
 		end
+	end
+end
+
+function save_model(model_idx)
+	if (use_mixed == true) then
+		if (use_pre_train ~= true) then
+			torch.save("models/" .. model_idx .. "_m.mdl", m)
+		end
+		torch.save("models/" .. model_idx .. "_l1.mdl", l1)
+		torch.save("models/" .. model_idx .. "_l2.mdl", l2)
+		torch.save("models/" .. model_idx .. "_o.mdl", o)
+	else
+		torch.save("models/" .. model_idx .. ".mdl", use_rnn and s or m)
 	end
 end
 
 function load_model(model_idx)
 	if (use_mixed == true) then
-		m = torch.load("models/" .. model_idx .. "_m.mdl")
+		if (use_pre_train ~= true) then
+			m = torch.load("models/" .. model_idx .. "_m.mdl")
+		end
 		l1 = torch.load("models/" .. model_idx .. "_l1.mdl")
 		l2 = torch.load("models/" .. model_idx .. "_l2.mdl")
 		o = torch.load("models/" .. model_idx .. "_o.mdl")
 
-		fwd = nn.Sequential()
-			:add(m)
-			:add(l1)
+		if (use_pre_train == true) then
+			fwd = l1
+			bwd = l2
+		else
+			fwd = nn.Sequential()
+				:add(m)
+				:add(l1)
+			bwd = nn.Sequential()
+				:add(m)
+				:add(l2)
+		end
+
 		fwdSeq = nn.Sequencer(fwd)
-		bwd = nn.Sequential()
-			:add(m)
-			:add(l2)
 		bwdSeq = nn.Sequencer(bwd)
 		merge = nn.JoinTable(1, 1)
 		mergeSeq = nn.Sequencer(merge)
@@ -537,5 +564,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
--- load_model(46)
+-- load_model(13)
 train_epoch(500)

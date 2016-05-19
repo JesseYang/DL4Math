@@ -175,14 +175,20 @@ function extractMixedFeature(img)
 
 	local inputTable = { }
 	local inputTableRev = { }
-	for i = 1, width - 3 do
+	for i = 1, width - window + 1 do
 		local curInput = use_cuda and 
-			img:sub(1, 1, 1, height, i, i + 3):cuda() or
-			img:sub(1, 1, 1, height, i, i + 3)
+			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
+			img:sub(1, 1, 1, height, i, i + window - 1)
 		inputTable[i] = (curInput - mean) / 1000
-		inputTableRev[width - 3 - i + 1] = (curInput - mean) / 1000
+		inputTableRev[width - window + 1 - i + 1] = (curInput - mean) / 1000
 	end
-	return { inputTable, inputTableRev }
+	if (use_pre_train == true) then
+		local t1 = pre_train:forward(inputTable)
+		local t2 = pre_train:forward(inputTableRev)
+		return { t1, t2 }
+	else
+		return { inputTable, inputTableRev }
+	end
 end
 
 function getInputTableFromImg(img)
