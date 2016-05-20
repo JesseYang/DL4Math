@@ -13,7 +13,7 @@ require 'data'
 require 'image'
 
 
-model_2_prime()
+model_6()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 
 -- Prepare the data
@@ -403,7 +403,7 @@ end
 
 -- sgd parameters
 sgd_params = {
-	learningRate = 1e-4,
+	learningRate = 1e-3,
 	learningRateDecay = 0,
 	weightDecay = 0,
 	momentum = 0.9
@@ -488,9 +488,7 @@ function train_epoch(epoch_num)
 		io.write("\n")
 
 		-- save the model file
-		if (epoch % 5 == 1) then
-			save_model(epoch)
-		end
+		save_model(epoch)
 	end
 end
 
@@ -564,5 +562,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
--- load_model(13)
-train_epoch(500)
+-- load_model("target")
+-- train_epoch(500)
