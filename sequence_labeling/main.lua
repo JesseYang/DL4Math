@@ -13,8 +13,10 @@ require 'data'
 require 'image'
 
 
-model_6()
+model_4()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
+eps = -1e-5
+use_sgd = false
 
 -- Prepare the data
 load_training_data()
@@ -338,13 +340,13 @@ function calDataErrRate()
 		end
 		local pred_str = table.concat(pred_str_ary)
 		if (pred_str ~= label_str) then
-			print("PRED: " .. pred_str)
-			print("LABEL: " .. label_str)
-			print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
+			-- print("PRED: " .. pred_str)
+			-- print("LABEL: " .. label_str)
+			-- print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
 			err_num = err_num + 1
 		end
 	end
-	print("Error rate: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
+	print("Error rate on " .. type_str .. " set: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
 end
 
 function calTestErrRate()
@@ -371,21 +373,25 @@ feval = function(x_new)
 		x:copy(x_new)
 	end
 	-- inputTable, target = toySample()
-	local inputTable, target = nextSample()
+	inputTable, target = nextSample()
 
 	dl_dx:zero()
 	-- forward of model
 	local outputTable = s:forward(inputTable)
 	-- change the format of output of the nn.Sequencer to match the format of input of CTCCriterion
 	local input_size = getInputSize(inputTable)
-	local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
 	for i = 1, input_size do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 	end
 	-- forward and backward of criterion
-	local loss_x = c:forward(pred, target)
-	if (loss_x == Inf) then
+	loss_x = c:forward(pred, target)
+	if (loss_x == (1/0)) then
 		error_occur = true
+	end
+	if (loss_x < eps) then
+		error_occur = true
+		print(train_idx)
 	end
 	local gradCTC = c:backward(pred, target)
 	-- change the format of gradInput of the CTCCriterion to match the format of output of nn.Sequencer
@@ -429,8 +435,11 @@ function train(time)
 	local huge_error = false
 	for i =1,time do
 		evalCounter = evalCounter + 1
-		-- _, fs = optim.sgd(feval, x, sgd_params)
-		_, fs = optim.adadelta(feval, x, adadelta_params, state)
+		if (use_sgd == true) then
+			_, fs = optim.sgd(feval, x, sgd_params)
+		else
+			_, fs = optim.adadelta(feval, x, adadelta_params, state)
+		end
 		if (error_occur == true) then
 			break
 		end
@@ -452,7 +461,7 @@ function train(time)
 			io.flush()
 		end
 		loss_ary[evalCounter] = fs[1]
-		if (loss_ary[evalCounter] > 1000000000) then
+		if (loss_ary[evalCounter] == (1/0)) then
 			huge_error = true
 			print("HUGE ERROR! 111")
 			break
@@ -466,7 +475,7 @@ function train_epoch(epoch_num)
 		nClock = os.clock() 
 		local huge_error = train(table.getn(imgs_train))
 		if (error_occur == true) then
-			print("INF LOSS!")
+			print("ERROR!!!")
 			break
 		end
 		if (huge_error == true) then
@@ -485,6 +494,8 @@ function train_epoch(epoch_num)
 		io.write(". Ave loss: " .. loss_cur_epoch .. ".")
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
+		calTrainErrRate()
+		calTestErrRate()
 		io.write("\n")
 
 		-- save the model file
@@ -563,4 +574,4 @@ end
 -- torch.save("models/debug.mdl", m)
 
 -- load_model("target")
--- train_epoch(500)
+train_epoch(500)

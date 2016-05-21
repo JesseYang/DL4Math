@@ -200,6 +200,39 @@ end
 function model_6()
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
+	ksize = 5
+	window = 40
+	padding_height = 80
+
+	horizon_pad = 20
+
+	m = nn.Sequential()
+	-- first stage
+	m:add(nn.SpatialConvolution(1, 32, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- second stage
+	m:add(nn.SpatialConvolution(32, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.ReLU())
+	-- third stage
+	m:add(nn.SpatialConvolution(64, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- fourth stage
+	m:add(nn.SpatialConvolution(64, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- last stage: standard 2-layer mlp
+	m:add(nn.Reshape(64 * 10 * 5))
+	m:add(nn.Linear(64 * 10 * 5, 200))
+	m:add(nn.Linear(200, klass))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+end
+
+function model_7()
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	klass = table.getn(label_set) + 1
 	k1 = 7
 	k2 = 3
 	window = 64
@@ -227,6 +260,41 @@ function model_6()
 	-- last stage: standard 1-layer mlp
 	m:add(nn.Reshape(64 * 4 * 5))
 	m:add(nn.Linear(64 * 4 * 5, klass))
+
+	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+end
+
+function model_8()
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	klass = table.getn(label_set) + 1
+	k1 = 7
+	k2 = 3
+	window = 64
+	padding_height = 80
+
+	horizon_pad = 30
+
+	m = nn.Sequential()
+	-- first stage
+	m:add(nn.SpatialConvolution(1, 32, k1, k1, 1, 1, (k1 - 1) / 2, (k1 - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- second stage
+	m:add(nn.SpatialConvolution(32, 64, k2, k2, 1, 1, (k2 - 1) / 2, (k2 - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- third stage
+	m:add(nn.SpatialConvolution(64, 64, k2, k2, 1, 1, (k2 - 1) / 2, (k2 - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- fourth stage
+	m:add(nn.SpatialConvolution(64, 64, k2, k2, 1, 1, (k2 - 1) / 2, (k2 - 1) / 2))
+	m:add(nn.ReLU())
+	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
+	-- last stage: standard 1-layer mlp
+	m:add(nn.Reshape(64 * 4 * 5))
+	m:add(nn.Linear(64 * 4 * 5, klass))
+	-- m:add(nn.Linear(200, klass))
 
 	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
