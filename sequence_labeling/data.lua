@@ -142,7 +142,7 @@ function toySample()
 end
 
 function getInputSize(inputTable)
-	return use_rnn and table.getn(inputTable[1]) or table.getn(inputTable)
+	return table.getn(inputTable)
 end
 
 function extractFeature(img)
@@ -151,53 +151,20 @@ function extractFeature(img)
 	local width = size[3]
 
 	local featureTable = { }
-	local featureTableRev = { }
 	for i = 1, width do
 		local feature = torch.Tensor(1, feature_len):fill(0)
 		feature = use_cuda and feature:cuda() or feature
-		local feature_rev = torch.Tensor(1, feature_len):fill(0)
-		feature_rev = use_cuda and feature_rev:cuda() or feature_rev
 		for j = 1, height do
 			feature[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
-			feature_rev[1][j] = img[1][j][i] == 255 and 0.5 or -0.5
 		end
 		featureTable[i] = feature
-		featureTableRev[width - i + 1] = feature_rev
 	end
-	return { featureTable, featureTableRev }
-end
-
-function extractMixedFeature(img)
-	local size = img:size()
-	local height = size[2]
-	local width = size[3]
-	local mean = 123
-
-	local inputTable = { }
-	local inputTableRev = { }
-	for i = 1, width - window + 1 do
-		local curInput = use_cuda and 
-			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
-			img:sub(1, 1, 1, height, i, i + window - 1)
-		inputTable[i] = (curInput - mean) / 1000
-		inputTableRev[width - window + 1 - i + 1] = (curInput - mean) / 1000
-	end
-	if (use_pre_train == true) then
-		local t1 = pre_train:forward(inputTable)
-		local t2 = pre_train:forward(inputTableRev)
-		return { t1, t2 }
-	else
-		return { inputTable, inputTableRev }
-	end
+	return featureTable
 end
 
 function getInputTableFromImg(img)
 	if (use_rnn) then
-		if (use_mixed) then
-			return extractMixedFeature(img)
-		else
-			return extractFeature(img)
-		end
+		return extractFeature(img)
 	end
 	local size = img:size()
 	local height = size[2]
