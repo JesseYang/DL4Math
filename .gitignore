@@ -23,3 +23,5 @@ sequence_labeling/models
 sequence_labeling/loss*
 sequence_labeling/log*
 sequence_labeling/test.lua
+sequence_labeling/temp.lua
+sequence_labeling/pca_data
