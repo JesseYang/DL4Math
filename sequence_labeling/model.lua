@@ -107,6 +107,9 @@ end
 function model_4()
 	-- the rnn model
 	use_rnn = true
+	use_pca = true
+	pca_dim = 30
+	pca_window = 1
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
@@ -114,8 +117,8 @@ function model_4()
 	feature_len = padding_height
 	hidden_size = 100
 
-	l1 = nn.LSTM(feature_len, hidden_size)
-	l2 = nn.LSTM(feature_len, hidden_size)
+	l1 = nn.LSTM(pca_dim, hidden_size)
+	l2 = nn.LSTM(pca_dim, hidden_size)
 	o = nn.Linear(hidden_size * 2, klass)
 
 	fwd = l1

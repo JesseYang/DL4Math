@@ -1,4 +1,4 @@
-use_cuda = false
+use_cuda = true
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -21,6 +21,7 @@ use_sgd = false
 -- Prepare the data
 load_training_data()
 load_test_data()
+train_set_pca(1, 30, true)
 
 function copy_table(t)
 	local res = { }
@@ -499,7 +500,9 @@ function train_epoch(epoch_num)
 		io.write("\n")
 
 		-- save the model file
-		save_model(epoch)
+		if (epoch % 3 == 1) then
+			save_model(epoch)
+		end
 	end
 end
 
