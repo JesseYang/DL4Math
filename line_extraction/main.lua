@@ -438,3 +438,42 @@ function tidyup()
 		end
 	end
 end
+
+
+function line_extraction_jiafa_data()
+	img_name_table = { }
+	for img_name in lfs.dir("jiafa_data/") do
+		if (img_name ~= "." and img_name ~= "..") then
+			local spec_ary = mysplit(img_name, ".")
+			local idx = tonumber(spec_ary[1])
+			img_name_table[idx] = img_name
+		end
+	end
+	line_idx = 1
+	tot_lines = { }
+	for idx = 1, table.getn(img_name_table) do
+		img_file = cv.imread { "jiafa_data/" .. img_name_table[idx], cv.IMREAD_GRAYSCALE }
+		for_line_label_img = line_extraction_2(img_file, img_file, idx)
+
+		-- labeling the results
+		line_label_img = torch.IntTensor(img_file:size())
+		label_num = cv.connectedComponents{for_line_label_img, line_label_img, 4}
+		line_label_img = line_label_img:byte()
+		print(label_num)
+
+		lines = { }
+		rects = { }
+		for i = 1, label_num - 1 do
+			cur_line_label_img = torch.ne(torch.eq(line_label_img, i), 1) * 255
+			cur_line = cv.addWeighted{cur_line_label_img, 0.5, img_file, 0.5, 0}
+			cur_line = torch.eq(cur_line, 0)
+			lines[i] = cur_line * 255
+			rects[i] = cv.boundingRect{cur_line}
+			cv.imshow { "tmp", lines[i] }
+			cv.waitKey {0}
+		end
+	end
+
+end
+
+line_extraction_jiafa_data()

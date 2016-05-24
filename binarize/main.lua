@@ -114,30 +114,5 @@ for img_file in lfs.dir(dpi) do
 		end
 		local im_bw = cv.adaptiveThreshold{im_gray, im_bw, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 11, 21}
 		cv.imwrite { dpi .. "_binary/" .. img_file, im_bw }
-
-
-		-- line extraction
-		--[[
-		local name_ary = mysplit(img_file, ".")
-		local line_dir_name = name_ary[1] .. "_lines"
-		lfs.mkdir(dpi .. "_binary/" .. line_dir_name)
-		for line_file in lfs.dir(dpi .. "_binary/" .. line_dir_name) do
-			os.remove(dpi .. "_binary/" .. line_dir_name .. "/" .. line_file)
-		end
-
-		line_extraction_2(im_bw, line_dir_name)
-		]]
-
-
-		-- special symbol extraction (fraction, radical)
-
-
-		-- char or sequence of chars recgnition
-
-
-		-- assemble as a whole
-
-
-		-- judge the result
 	end
 end
