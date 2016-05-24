@@ -21,7 +21,9 @@ use_sgd = false
 -- Prepare the data
 load_training_data()
 load_test_data()
-train_set_pca(1, 30, true)
+if (use_pca) then
+	train_set_pca(1, pca_dim, false)
+end
 
 function copy_table(t)
 	local res = { }

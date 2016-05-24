@@ -63,10 +63,11 @@ function pca(d, dim, whiten)
 	-- whiten_factor = 1 / torch.var(pca_data:sub(1, -1, 1, 1)) * whiten_factor[1][1]
 	v1 = torch.var(pca_data:sub(1, -1, 1, 1))
 	whiten_factor = whiten_factor * torch.sqrt(1/(v1 * whiten_factor[1][1]^2))
+	sigma = torch.sqrt(torch.var(pca_data))
 	if (whiten == true) then
 		return t * whiten_factor
 	else
-		return t
+		return t / sigma
 	end
 end
 
