@@ -22,7 +22,7 @@ use_sgd = false
 load_training_data()
 load_test_data()
 if (use_pca) then
-	train_set_pca(1, pca_dim, false)
+	train_set_pca()
 end
 
 function copy_table(t)
@@ -82,8 +82,6 @@ function prefix_search_decode(pred_param)
 		gamma_p_star_b[t] = i_star_prob
 	end
 	local p_star_prefix_prob = 1 - i_star_prob
-	-- local P = { }
-	-- P[p_star] = i_star_prob
 
 	while (p_star_prefix_prob > i_star_prob) do
 		local prob_remaining = p_star_prefix_prob

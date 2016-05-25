@@ -108,13 +108,16 @@ function model_4()
 	-- the rnn model
 	use_rnn = true
 	use_pca = true
-	pca_dim = 80
-	pca_window = 1
+	pca_dim = 240
+	window = 3
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
 	feature_len = padding_height
+	if (use_pca == true) then
+		feature_len = padding_height * window
+	end
 	hidden_size = 200
 
 	l1 = nn.LSTM(pca_dim, hidden_size)
