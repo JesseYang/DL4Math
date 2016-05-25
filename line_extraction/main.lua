@@ -462,15 +462,51 @@ function line_extraction_jiafa_data()
 		print(label_num)
 
 		lines = { }
+		non_zero_num = { }
 		rects = { }
 		for i = 1, label_num - 1 do
 			cur_line_label_img = torch.ne(torch.eq(line_label_img, i), 1) * 255
 			cur_line = cv.addWeighted{cur_line_label_img, 0.5, img_file, 0.5, 0}
 			cur_line = torch.eq(cur_line, 0)
 			lines[i] = cur_line * 255
+			non_zero_num[i] = torch.nonzero(cur_line):size()[1]
 			rects[i] = cv.boundingRect{cur_line}
-			cv.imshow { "tmp", lines[i] }
-			cv.waitKey {0}
+			-- cv.imshow { "tmp", lines[i] }
+			-- cv.waitKey {0}
+		end
+
+
+		-- find tiny lines and combine
+		local tiny_num_threshold = 30
+		local tiny_height_threshold = 5
+		local ignore_num_threshold = 3
+		tiny_lines = { }
+		normal_lines = { }
+		normal_lines_with_tiny = { }
+		for i = 1, label_num - 1 do
+			if (non_zero_num[i] > ignore_num_threshold) then
+				if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
+					table.insert(tiny_lines, i)
+				else
+					table.insert(normal_lines, i)
+					table.insert(normal_lines_with_tiny, {i})
+				end
+			end
+		end
+		for i = 1, table.getn(tiny_lines) do
+			local min_dist = -1
+			local min_idx = -1
+			local min_dist_threshold = 50
+			for j = 1, table.getn(normal_lines) do
+				local cur_dist = rect_distance(rects[tiny_lines[i]], rects[normal_lines[j]])
+				if (min_dist == -1 or cur_dist < min_dist) then
+					min_dist = cur_dist
+					min_idx = j
+				end
+			end
+			if (min_dist < min_dist_threshold) then
+				table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
+			end
 		end
 	end
 
