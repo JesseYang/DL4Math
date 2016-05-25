@@ -12,9 +12,69 @@ require 'model'
 train_mean = 0
 stride = 1
 
+-- input are images
+-- return:
+---- 1. sorted eigen values
+---- 2. transform matrix
+function train_set_pca(window, dim, whiten)
+	-- 1. get table of feature vectors
+	features = { }
+	local height = imgs_train[1]:size(2)
+	local window = window or pca_window
+	local idx = 1
+	local ori_dim = height * window
+	for i = 1, table.getn(imgs_train) do
+	-- for i = 1, 10 do
+		local width = imgs_train[i]:size(3)
+		for c = 1, width - window + 1 do
+			feature = imgs_train[i]:sub(1, 1, 1, height, c, c + window - 1):reshape(1, ori_dim)
+			features[idx] = feature
+			idx = idx + 1
+		end
+	end
+	local features_tensor = torch.zeros(table.getn(features), ori_dim)
+	for i = 1, table.getn(features) do
+		features_tensor[i] = features[i][1]
+	end
+
+	-- 2. preprocess for the features
+	dim = dim or pca_dim
+	whiten = whiten or false
+	pca_transform = pca(features_tensor, dim, whiten)
+
+	return pca_transform
+end
+
+function pca(d, dim, whiten)
+	mean_over_dim = torch.mean(d, 1)
+	d_m = d - torch.ger(torch.ones(d:size(1)), mean_over_dim:squeeze())
+	cov = d_m:t() * d_m
+	ce, cvv = torch.symeig(cov, 'V')
+	-- sort eigenvalues
+	ce, idx = torch.sort(ce, true)
+	-- sort eigenvectors
+	cvv = cvv:index(2, idx:long())
+
+	print(ce:sub(1, dim):sum() / ce:sum())
+	t = cvv:sub(1, -1, 1, dim)
+	ce = ce:sub(1, dim)
+	pca_data = d_m * t
+	whiten_factor = torch.diag(ce:clone():sqrt():pow(-1))
+	-- whiten_factor = 1 / torch.var(pca_data:sub(1, -1, 1, 1)) * whiten_factor[1][1]
+	v1 = torch.var(pca_data:sub(1, -1, 1, 1))
+	whiten_factor = whiten_factor * torch.sqrt(1/(v1 * whiten_factor[1][1]^2))
+	sigma = torch.sqrt(torch.var(pca_data))
+	if (whiten == true) then
+		return t * whiten_factor
+	else
+		return t / sigma
+	end
+end
+
 function get_label_by_str(label_str)
 	char_idx = 1
 	local result = { }
+	local with_interval = label_set[table.getn(label_set)] == 'k'
 	for c in label_str:gmatch(".") do
 		for i = 1,table.getn(label_set) do
 			if (label_set[i] == c) then
@@ -22,6 +82,13 @@ function get_label_by_str(label_str)
 			end
 		end
 		char_idx = char_idx + 1
+		if (with_interval) then
+			result[char_idx] = table.getn(label_set)
+			char_idx = char_idx + 1
+		end
+	end
+	if (with_interval) then
+		result[table.getn(result)] = nil
 	end
 	return result
 end
@@ -55,18 +122,20 @@ function load_data()
 						ori_imgs_type[type_idx] = img:clone()
 						img = img:float()
 						-- padding the img to the height padding_height
-						local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
+						local padding_img
+						padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
 						padding_img
 							:narrow(3, horizon_pad + 1, width)
-							:narrow(2, math.max(0, math.ceil((padding_height - height) / 2)), height)
+							:narrow(2, math.max(1, math.ceil((padding_height - height) / 2)), height)
 							:copy(img)
 						-- cv.imshow{"img", padding_img[1]}
 						-- cv.waitKey {0}
-						local mean = padding_img:sum() / (width * height)
-						local padding_img = (padding_img - mean) / 100
+						-- local mean = 123
+						-- local padding_img = (padding_img - mean) / 1000
 						imgs_type[type_idx] = padding_img
 						labels_type[type_idx] = get_label_by_str(label)
 						label_pathname_ary_type[type_idx] = label_filepath
+						prefix_ary_type[type_idx] = prefix
 						type_idx = type_idx + 1
 					end
 				end
@@ -87,12 +156,14 @@ function load_training_data()
 	labels_train = { }
 	train_idx_ary = { }
 	label_pathname_ary_train = { }
+	prefix_ary_train = { }
 
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	type_idx_ary = train_idx_ary
 	label_pathname_ary_type = label_pathname_ary_train
+	prefix_ary_type = prefix_ary_train
 	type_str = "training"
 
 	load_data()
@@ -106,12 +177,14 @@ function load_test_data()
 	labels_test = { }
 	test_idx_ary = { }
 	label_pathname_ary_test = { }
+	prefix_ary_test = { }
 
 	ori_imgs_type = ori_imgs_test
 	imgs_type = imgs_test
 	labels_type = labels_test
 	type_idx_ary = test_idx_ary
 	label_pathname_ary_type = label_pathname_ary_test
+	prefix_ary_type = prefix_ary_test
 	type_str = "test"
 
 	load_data()
@@ -127,16 +200,47 @@ function toySample()
 	return inputTable, label
 end
 
-function getInputTableFromImg(img)
+function getInputSize(inputTable)
+	return table.getn(inputTable)
+end
+
+function extractFeature(img)
 	local size = img:size()
 	local height = size[2]
 	local width = size[3]
 
+	local featureTable = { }
+	for i = 1, width do
+		local feature = torch.Tensor(1, feature_len):fill(0)
+		for j = 1, height do
+			feature[1][j] = img[1][j][i]
+		end
+		if (use_pca == true) then
+			featureTable[i] = (feature - mean_over_dim) * pca_transform
+		else
+			feature[1] = (feature[1] / 255) - 0.5
+			featureTable[i] = feature
+		end
+		featureTable[i] = use_cuda and featureTable[i]:cuda() or featureTable[i]
+	end
+	return featureTable
+end
+
+function getInputTableFromImg(img)
+	if (use_rnn) then
+		return extractFeature(img)
+	end
+	local size = img:size()
+	local height = size[2]
+	local width = size[3]
+	local mean = 123
+
 	local inputTable = { }
 	for i = 1, width - window + 1, stride do
-		inputTable[1 + (i - 1) / stride] = use_cuda and 
+		local curInput = use_cuda and 
 			img:sub(1, 1, 1, height, i, i + window - 1):cuda() or
 			img:sub(1, 1, 1, height, i, i + window - 1)
+		inputTable[1 + (i - 1) / stride] = (curInput - mean) / 1000
 	end
 	return inputTable
 end

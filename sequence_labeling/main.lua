@@ -13,27 +13,174 @@ require 'data'
 require 'image'
 
 
--- model_0()
-model_1()
-s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+model_4()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
--- c = nn.CTCCriterion()
+eps = -1e-5
+use_sgd = false
 
 -- Prepare the data
 load_training_data()
 load_test_data()
-	
-function showDataResult(img_idx, rank_num)
+if (use_pca) then
+	train_set_pca(1, pca_dim, false)
+end
+
+function copy_table(t)
+	local res = { }
+	for i, v in ipairs(t) do
+		res[i] = v
+	end
+	return res
+end
+
+function equal_table(t1, t2)
+	if (table.getn(t1) ~= table.getn(t2)) then
+		return false
+	end
+	for i = 1, table.getn(t1) do
+		if (t1[i] ~= t2[i]) then
+			return false
+		end
+	end
+	return true
+end
+
+function softmax(pred)
+	local prob = pred:clone()
+	local size = pred:size()
+	local T = size[2]
+	local L = size[3] - 1
+	for t = 1, T do
+		local temp = { }
+		local sum = 0
+		for k = 1, L + 1 do
+			temp[k] = math.exp(pred[1][t][k])
+			sum = sum + temp[k]
+		end
+		for k = 1, L + 1 do
+			prob[1][t][k] = temp[k] / sum
+		end
+	end
+	return prob
+end
+
+function prefix_search_decode(pred_param)
+	local pred = pred_param:clone()
+
+	local size = pred:size()
+	local T = size[2]
+	local L = size[3] - 1
+
+	local gamma_p_star_b = { }
+	local gamma_p_star_n = { }
+	local p_star = { }
+	local i_star = { }
+	local i_star_prob = 1
+	for t = 1, T do
+		i_star_prob = i_star_prob * pred[1][t][1]
+		gamma_p_star_n[t] = 0
+		gamma_p_star_b[t] = i_star_prob
+	end
+	local p_star_prefix_prob = 1 - i_star_prob
+	-- local P = { }
+	-- P[p_star] = i_star_prob
+
+	while (p_star_prefix_prob > i_star_prob) do
+		local prob_remaining = p_star_prefix_prob
+		local p_prob_store = { }
+		local p_prefix_prob_store = { }
+		local gamma_p_n_store = { }
+		local gamma_p_b_store = { }
+		local P = { }
+		for k = 1, L do
+			-- append k to p_star to get p
+			local p = copy_table(p_star)
+			p[table.getn(p) + 1] = k
+			local gamma_p_b = { }
+			local gamma_p_n = { }
+			if (p_star == { }) then
+				gamma_p_n[1] = pred[1][1][k + 1]	-- y_k^1
+			else
+				gamma_p_n[1] = 0
+			end
+			gamma_p_b[1] = 0
+			local prefix_prob = gamma_p_n[1]
+			for t = 2, T do
+				local new_label_prob
+				if (p_star[table.getn(p_star)] == k) then
+					new_label_prob = gamma_p_star_b[t-1]
+				else
+					new_label_prob = gamma_p_star_b[t-1] + gamma_p_star_n[t-1]
+				end
+				gamma_p_n[t] = pred[1][t][k + 1] * (new_label_prob + gamma_p_n[t - 1])
+				gamma_p_b[t] = pred[1][t][1] * (gamma_p_b[t - 1] + gamma_p_n[t - 1])
+				prefix_prob = prefix_prob + pred[1][t][k + 1] * new_label_prob
+			end
+			local p_prob = gamma_p_n[T] + gamma_p_b[T]
+			local p_prefix_prob = prefix_prob - p_prob
+			p_prob_store[p] = p_prob
+			p_prefix_prob_store[p] = p_prefix_prob
+			gamma_p_n_store[p] = gamma_p_n
+			gamma_p_b_store[p] = gamma_p_b
+
+			prob_remaining = prob_remaining - p_prefix_prob
+			if (p_prob > i_star_prob) then
+				-- i^* = p
+				i_star = p
+				i_star_prob = p_prob
+			end
+			if (p_prefix_prob > i_star_prob) then
+				P[p] = p_prefix_prob
+			end
+			if (prob_remaining <= i_star_prob) then
+				break
+			end
+		end
+		--[[
+		for p in pairs(P) do
+			if (equal_table(p, p_star)) then
+				P[p] = nil
+			end
+		end
+		]]
+		local p_prefix_prob = -1
+		for p in pairs(P) do
+			if (P[p] > p_prefix_prob) then
+				p_prefix_prob = P[p]
+				p_star = p
+				-- the p_star_prob, p_star_prefix_prob, gamma_p_star_n, and gamma_p_star_b also needs to be set
+				p_star_prob = p_prob_store[p]
+				p_star_prefix_prob = p_prefix_prob_store[p]
+				gamma_p_star_n = gamma_p_n_store[p]
+				gamma_p_star_b = gamma_p_b_store[p]
+			end
+		end
+		if (p_prefix_prob == -1) then
+			break
+		end
+	end
+
+	-- i_star is the result, convert to predicted string and return
+	local pred_str_ary = { }
+	for i = 1, table.getn(i_star) do
+		pred_str_ary[i] = label_set[i_star[i]]
+	end
+	return table.concat(pred_str_ary)
+end
+
+function showDataResult(img_idx)
+
 	local ori_img = ori_imgs_type[img_idx]
 	local img = imgs_type[img_idx]
 	local label = labels_type[img_idx]
 
 	local inputTable = getInputTableFromImg(img)
+	local input_size = getInputSize(inputTable)
+
 
 	local outputTable = s:forward(inputTable)
-	local input_size = table.getn(inputTable)
-	local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
-	for i = 1, table.getn(inputTable) do
+	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	for i = 1, input_size do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 	end
 	-- image.display(ori_img)
@@ -43,15 +190,17 @@ function showDataResult(img_idx, rank_num)
 	end
 	print("Label File Name: " .. label_pathname_ary_type[img_idx])
 	print("Correct Label: " .. label_str)
+	print("Decoded Label: " .. prefix_search_decode(softmax(pred)))
 
-	rank_num = rank_num or 3
-	rank_num = math.min(rank_num, 5)
+	local rank_num = 3
 	pred_data = { }
+	pred_str_1 = ""
+	local pred_clone = pred:clone()
 	for r = 1,rank_num do
-		local pred_str = "               "
-		for i = 1, table.getn(inputTable) do
-			local temp, idx = torch.max(pred[1][i], 1)
-			pred[1][i][idx[1]] = -1e10
+		local pred_str = ""
+		for i = 1, input_size do
+			local temp, idx = torch.max(pred_clone[1][i], 1)
+			pred_clone[1][i][idx[1]] = -1e10
 			if (idx[1] == 1) then
 				pred_str = pred_str .. " "
 				if (r == 1) then
@@ -65,9 +214,18 @@ function showDataResult(img_idx, rank_num)
 			end
 		end
 		print(pred_str)
+		if (r == 1) then
+			pred_str_1 = pred_str
+		end
 	end
+	local idx_str = ""
+	for i = 1, input_size do
+		idx_str = idx_str .. (i % 10)
+	end
+	print(idx_str)
 
 	-- put the prediction results and the original image into one image
+	--[[
 	img_size = ori_img:size()
 	height = img_size[2]
 	width = img_size[3]
@@ -81,30 +239,70 @@ function showDataResult(img_idx, rank_num)
 	local data_idx = 1
 	for i = 1, width + 2 * horizon_pad - window + 1, stride do
 		if (pred_data[data_idx] ~= -1) then
-			com_img[1][(pred_data[data_idx] - 1) * 3 + 1][i + (window - 1) / 2] = 0
-			com_img[1][(pred_data[data_idx] - 1) * 3 + 2][i + (window - 1) / 2] = 0
-			com_img[1][(pred_data[data_idx] - 1) * 3 + 3][i + (window - 1) / 2] = 0
+			com_img[1][(pred_data[data_idx] - 1) * 3 + 1][i + math.floor(window / 2)] = 0
+			com_img[1][(pred_data[data_idx] - 1) * 3 + 2][i + math.floor(window / 2)] = 0
+			com_img[1][(pred_data[data_idx] - 1) * 3 + 3][i + math.floor(window / 2)] = 0
 		end
 		data_idx = data_idx + 1
 	end
 
 	image.display(com_img)
+
+	for i = 1,table.getn(inputTable) do
+		print(i .. ": " .. string.sub(pred_str_1, i, i))
+		image.display(inputTable[i])
+		local ii = io.read()
+		if (ii == "q") then
+			break
+		end
+	end
+	]]
 end
 
-function showTestResult(img_idx, rank_num)
+function showTestResult(img_idx)
 	ori_imgs_type = ori_imgs_test
 	imgs_type = imgs_test
 	labels_type = labels_test
 	label_pathname_ary_type = label_pathname_ary_test
-	return showDataResult(img_idx, rank_num)
+	return showDataResult(img_idx)
 end
 
-function showTrainResult(img_idx, rank_num)
+function showTestResultByName(img_name)
+	local img_idx = -1
+	for i=1,table.getn(prefix_ary_test) do
+		if (prefix_ary_test[i] == img_name) then
+			img_idx = i
+			break
+		end
+	end
+	if (img_idx ~= -1) then
+		showTestResult(img_idx)
+	else
+		print("Image does not exist")
+	end
+end
+
+function showTrainResult(img_idx)
 	ori_imgs_type = ori_imgs_train
 	imgs_type = imgs_train
 	labels_type = labels_train
 	label_pathname_ary_type = label_pathname_ary_train
-	return showDataResult(img_idx, rank_num)
+	return showDataResult(img_idx)
+end
+
+function showTrainResultByName(img_name)
+	local img_idx = -1
+	for i=1,table.getn(prefix_ary_train) do
+		if (prefix_ary_train[i] == img_name) then
+			img_idx = i
+			break
+		end
+	end
+	if (img_idx ~= -1) then
+		showTrainResult(img_idx)
+	else
+		print("Image does not exist")
+	end
 end
 
 function calDataErrRate()
@@ -116,9 +314,9 @@ function calDataErrRate()
 
 		local inputTable = getInputTableFromImg(img)
 		local outputTable = s:forward(inputTable)
-		local input_size = table.getn(inputTable)
+		local input_size = getInputSize(inputTable)
 		local pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
-		for i = 1, table.getn(inputTable) do
+		for i = 1, input_size do
 			pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 		end
 
@@ -130,7 +328,7 @@ function calDataErrRate()
 		local pred_str_ary = { }
 		local pred_idx = 1
 		local last_c = ""
-		for i = 1, table.getn(inputTable) do
+		for i = 1, input_size do
 			local temp, idx = torch.max(pred[1][i], 1)
 			pred[1][i][idx[1]] = -1e10
 			if (idx[1] ~= 1) then
@@ -145,11 +343,13 @@ function calDataErrRate()
 		end
 		local pred_str = table.concat(pred_str_ary)
 		if (pred_str ~= label_str) then
-			print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
+			-- print("PRED: " .. pred_str)
+			-- print("LABEL: " .. label_str)
+			-- print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
 			err_num = err_num + 1
 		end
 	end
-	print("Error rate: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
+	print("Error rate on " .. type_str .. " set: " .. err_num / table.getn(imgs_type) .. ". " .. err_num .. "/" .. table.getn(imgs_type))
 end
 
 function calTestErrRate()
@@ -171,6 +371,7 @@ end
 x, dl_dx = s:getParameters()
 
 feval = function(x_new)
+	error_occur = false
 	if x ~= x_new then
 		x:copy(x_new)
 	end
@@ -179,20 +380,31 @@ feval = function(x_new)
 
 	dl_dx:zero()
 	-- forward of model
-	outputTable = s:forward(inputTable)
+	local outputTable = s:forward(inputTable)
 	-- change the format of output of the nn.Sequencer to match the format of input of CTCCriterion
-	local input_size = table.getn(inputTable)
+	local input_size = getInputSize(inputTable)
 	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
-	for i = 1, table.getn(inputTable) do
+	for i = 1, input_size do
 		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
 	end
 	-- forward and backward of criterion
 	loss_x = c:forward(pred, target)
-	gradCTC = c:backward(pred, target)
+	if (loss_x == (1/0)) then
+		error_occur = true
+	end
+	if (loss_x < eps) then
+		error_occur = true
+		print(train_idx)
+	end
+	local gradCTC = c:backward(pred, target)
 	-- change the format of gradInput of the CTCCriterion to match the format of output of nn.Sequencer
-	gradOutputTable = { }
-	for i = 1, table.getn(inputTable) do
-		gradOutputTable[i] = torch.reshape(gradCTC[1][i], klass)
+	local gradOutputTable = { }
+	for i = 1, input_size do
+		if (use_rnn and use_pre_train ~= true) then
+			gradOutputTable[i] = torch.reshape(gradCTC[1][i], 1, klass)
+		else
+			gradOutputTable[i] = torch.reshape(gradCTC[1][i], klass)
+		end
 	end
 	s:backward(inputTable, gradOutputTable)
 	return loss_x, dl_dx
@@ -223,10 +435,17 @@ function train(time)
 	last_epoch = epoch or 0
 	star_num = star_num or 0
 	line_star = 80
+	local huge_error = false
 	for i =1,time do
 		evalCounter = evalCounter + 1
-		-- _, fs = optim.sgd(feval, x, sgd_params)
-		_, fs = optim.adadelta(feval, x, adadelta_params, state)
+		if (use_sgd == true) then
+			_, fs = optim.sgd(feval, x, sgd_params)
+		else
+			_, fs = optim.adadelta(feval, x, adadelta_params, state)
+		end
+		if (error_occur == true) then
+			break
+		end
 		if (i % 1 == 0) then
 			if (last_epoch ~= epoch) then
 				star_num = 0
@@ -245,35 +464,119 @@ function train(time)
 			io.flush()
 		end
 		loss_ary[evalCounter] = fs[1]
+		if (loss_ary[evalCounter] == (1/0)) then
+			huge_error = true
+			print("HUGE ERROR! 111")
+			break
+		end
 	end
+	return huge_error
 end
 
 function train_epoch(epoch_num)
 	for e = 1, epoch_num do
 		nClock = os.clock() 
-		train(table.getn(imgs_train))
+		local huge_error = train(table.getn(imgs_train))
+		if (error_occur == true) then
+			print("ERROR!!!")
+			break
+		end
+		if (huge_error == true) then
+			print("HUGE ERROR! 222")
+			break
+		end
 		local elapse = torch.round((os.clock() - nClock) * 10) / 10
 
 		for j = star_num + 1, line_star do
 			io.write("=")
 		end
 		io.flush()
-		local loss_tensor = torch.Tensor(loss_ary)
-		local num = table.getn(imgs_train)
+		loss_tensor = torch.Tensor(loss_ary)
+		num = table.getn(imgs_train)
 		local loss_cur_epoch = loss_tensor:sub((last_epoch - 1) * num + 1, last_epoch * num):mean()
 		io.write(". Ave loss: " .. loss_cur_epoch .. ".")
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
+		-- calTrainErrRate()
+		calTestErrRate()
 		io.write("\n")
 
 		-- save the model file
-		torch.save("models/" .. epoch .. ".mdl", m)
+		if (epoch % 3 == 1) then
+			save_model(epoch)
+		end
+	end
+end
+
+function save_model(model_idx)
+	if (use_mixed == true) then
+		if (use_pre_train ~= true) then
+			torch.save("models/" .. model_idx .. "_m.mdl", m)
+		end
+		torch.save("models/" .. model_idx .. "_l1.mdl", l1)
+		torch.save("models/" .. model_idx .. "_l2.mdl", l2)
+		torch.save("models/" .. model_idx .. "_o.mdl", o)
+	else
+		torch.save("models/" .. model_idx .. ".mdl", use_rnn and s or m)
 	end
 end
 
 function load_model(model_idx)
-	m = torch.load("models/" .. model_idx .. ".mdl")
-	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+	if (use_mixed == true) then
+		if (use_pre_train ~= true) then
+			m = torch.load("models/" .. model_idx .. "_m.mdl")
+		end
+		l1 = torch.load("models/" .. model_idx .. "_l1.mdl")
+		l2 = torch.load("models/" .. model_idx .. "_l2.mdl")
+		o = torch.load("models/" .. model_idx .. "_o.mdl")
+
+		if (use_pre_train == true) then
+			fwd = l1
+			bwd = l2
+		else
+			fwd = nn.Sequential()
+				:add(m)
+				:add(l1)
+			bwd = nn.Sequential()
+				:add(m)
+				:add(l2)
+		end
+
+		fwdSeq = nn.Sequencer(fwd)
+		bwdSeq = nn.Sequencer(bwd)
+		merge = nn.JoinTable(1, 1)
+		mergeSeq = nn.Sequencer(merge)
+
+		parallel = nn.ParallelTable()
+		parallel:add(fwdSeq):add(bwdSeq)
+		brnn = nn.Sequential()
+			:add(parallel)
+			:add(nn.ZipTable())
+			:add(mergeSeq)
+
+		rnn = nn.Sequential()
+			:add(brnn) 
+			:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
+
+		s = use_cuda == true and rnn:cuda() or rnn
+		x, dl_dx = s:getParameters()
+	else
+		m = torch.load("models/" .. model_idx .. ".mdl")
+		x, dl_dx = m:getParameters()
+		if (use_rnn) then
+			s = m
+		else
+			s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+		end
+	end
 end
 
+-- m = torch.load("models/debug.mdl")
+-- s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
+
+-- load_model(13)
+-- train_epoch(2)
+-- torch.save("models/debug.mdl", m)
+
+-- load_model("target")
 train_epoch(500)
