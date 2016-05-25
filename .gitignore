@@ -21,3 +21,4 @@ sequence_labeling/training_set
 sequence_labeling/test_set
 sequence_labeling/models
 sequence_labeling/loss
+torch-decomposition
