@@ -108,8 +108,8 @@ function model_4()
 	-- the rnn model
 	use_rnn = true
 	use_pca = true
-	pca_dim = 240
-	window = 3
+	pca_dim = 80
+	window = 1
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
