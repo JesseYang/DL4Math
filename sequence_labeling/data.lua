@@ -72,7 +72,6 @@ end
 function get_label_by_str(label_str)
 	char_idx = 1
 	local result = { }
-	local with_interval = label_set[table.getn(label_set)] == 'k'
 	for c in label_str:gmatch(".") do
 		for i = 1,table.getn(label_set) do
 			if (label_set[i] == c) then
@@ -80,13 +79,6 @@ function get_label_by_str(label_str)
 			end
 		end
 		char_idx = char_idx + 1
-		if (with_interval) then
-			result[char_idx] = table.getn(label_set)
-			char_idx = char_idx + 1
-		end
-	end
-	if (with_interval) then
-		result[table.getn(result)] = nil
 	end
 	return result
 end

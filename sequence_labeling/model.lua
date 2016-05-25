@@ -110,7 +110,8 @@ function model_4()
 	use_pca = true
 	pca_dim = 80
 	window = 1
-	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	-- label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "=" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
@@ -132,7 +133,7 @@ function model_4()
 	mergeSeq = nn.Sequencer(merge)
 
 	concat = nn.ConcatTable()
-	concat:add(fwdSeq):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq))
+	concat:add(fwdSeq):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq):add(nn.ReverseTable()))
 	brnn = nn.Sequential()
 		:add(concat)
 		:add(nn.ZipTable())
