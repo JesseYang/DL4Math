@@ -477,8 +477,8 @@ function line_extraction_jiafa_data()
 
 		-- find tiny lines and combine
 		local tiny_num_threshold = 30
-		local tiny_height_threshold = 5
-		local ignore_num_threshold = 3
+		local tiny_height_threshold = 7
+		local ignore_num_threshold = 8
 		tiny_lines = { }
 		normal_lines = { }
 		normal_lines_with_tiny = { }
@@ -531,4 +531,36 @@ function line_extraction_jiafa_data()
 	end
 end
 
-line_extraction_jiafa_data()
+-- line_extraction_jiafa_data()
+
+function label_extraction_jiafa_data()
+	local labels_file = assert(io.open("jiafa_label", "r"))
+	local c = labels_file:read()
+	local idx = 1
+	while (c ~= nil)
+	do
+		local label_file = io.open("labels/" .. idx, "w")
+		label_file:write(c)
+		idx = idx + 1
+		c = labels_file:read()
+	end
+end
+
+-- label_extraction_jiafa_data()
+
+function get_jiafa_data_max_height()
+	local max_height = 0
+	for img_filename in lfs.dir("lines/") do
+		if (img_filename ~= "." and img_filename ~= "..") then
+			img_file = cv.imread { "lines/" .. img_filename, cv.IMREAD_GRAYSCALE }
+			-- print(img_file:size(1))
+			max_height = img_file:size(1) > max_height and img_file:size(1) or max_height
+			if (img_file:size(1) == 61) then
+				print(img_filename)
+			end
+		end
+	end
+	print(max_height)
+end
+
+get_jiafa_data_max_height()

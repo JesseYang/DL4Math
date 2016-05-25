@@ -1,4 +1,4 @@
-use_cuda = true
+use_cuda = false
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -577,4 +577,4 @@ end
 -- torch.save("models/debug.mdl", m)
 
 -- load_model("target")
-train_epoch(500)
+-- train_epoch(500)

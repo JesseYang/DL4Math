@@ -17,8 +17,10 @@ line_extraction/data_set
 line_extraction/water_imgs*
 line_extraction/lines*
 line_extraction/compressed_lines*
-sequence_labeling/training_set
-sequence_labeling/test_set
+line_extraction/jiafa_label
+line_extraction/labels
+sequence_labeling/training_set*
+sequence_labeling/test_set*
 sequence_labeling/models
 sequence_labeling/loss*
 sequence_labeling/log*
