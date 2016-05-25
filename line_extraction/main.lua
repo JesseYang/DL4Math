@@ -450,7 +450,6 @@ function line_extraction_jiafa_data()
 		end
 	end
 	line_idx = 1
-	tot_lines = { }
 	for idx = 1, table.getn(img_name_table) do
 		img_file = cv.imread { "jiafa_data/" .. img_name_table[idx], cv.IMREAD_GRAYSCALE }
 		for_line_label_img = line_extraction_2(img_file, img_file, idx)
@@ -462,18 +461,74 @@ function line_extraction_jiafa_data()
 		print(label_num)
 
 		lines = { }
+		non_zero_num = { }
 		rects = { }
 		for i = 1, label_num - 1 do
 			cur_line_label_img = torch.ne(torch.eq(line_label_img, i), 1) * 255
 			cur_line = cv.addWeighted{cur_line_label_img, 0.5, img_file, 0.5, 0}
 			cur_line = torch.eq(cur_line, 0)
 			lines[i] = cur_line * 255
+			non_zero_num[i] = torch.nonzero(cur_line):size()[1]
 			rects[i] = cv.boundingRect{cur_line}
-			cv.imshow { "tmp", lines[i] }
-			cv.waitKey {0}
+			-- cv.imshow { "tmp", lines[i] }
+			-- cv.waitKey {0}
+		end
+
+
+		-- find tiny lines and combine
+		local tiny_num_threshold = 30
+		local tiny_height_threshold = 5
+		local ignore_num_threshold = 3
+		tiny_lines = { }
+		normal_lines = { }
+		normal_lines_with_tiny = { }
+		for i = 1, label_num - 1 do
+			if (non_zero_num[i] > ignore_num_threshold) then
+				if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
+					table.insert(tiny_lines, i)
+				else
+					table.insert(normal_lines, i)
+					table.insert(normal_lines_with_tiny, {i})
+				end
+			end
+		end
+		for i = 1, table.getn(tiny_lines) do
+			local min_dist = -1
+			local min_idx = -1
+			local min_dist_threshold = 50
+			for j = 1, table.getn(normal_lines) do
+				local cur_dist = rect_distance(rects[tiny_lines[i]], rects[normal_lines[j]])
+				if (min_dist == -1 or cur_dist < min_dist) then
+					min_dist = cur_dist
+					min_idx = j
+				end
+			end
+			if (min_dist < min_dist_threshold) then
+				table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
+			end
+		end
+
+		local m = nn.Sequential()
+		m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
+		local final_lines = { }
+		local final_line_locations = { }
+		final_lines_local = { }
+		for c = 1, table.getn(normal_lines_with_tiny) do
+			local temp = lines[normal_lines_with_tiny[c][1]]
+			for i = 2, table.getn(normal_lines_with_tiny[c]) do
+				temp = cv.addWeighted{temp, 0.5, lines[normal_lines_with_tiny[c][i]], 0.5, 0}
+			end
+			final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
+			local rect = cv.boundingRect{temp}
+			final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
+			final_lines_local[c] = m:forward(final_lines_local[c])
+			final_line_locations[c] = rect
+			-- cv.imshow{"final_line", final_lines_local[c]}
+			-- cv.waitKey {0}
+			cv.imwrite { "lines/" .. line_idx .. ".bmp", final_lines_local[c] }
+			line_idx = line_idx + 1
 		end
 	end
-
 end
 
 line_extraction_jiafa_data()

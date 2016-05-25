@@ -25,3 +25,5 @@ sequence_labeling/log*
 sequence_labeling/test.lua
 sequence_labeling/temp.lua
 sequence_labeling/pca_data
+torch-decomposition
+line_extraction/jiafa_data

@@ -16,18 +16,17 @@ stride = 1
 -- return:
 ---- 1. sorted eigen values
 ---- 2. transform matrix
-function train_set_pca(window, dim, whiten)
+function train_set_pca(w, dim, whiten)
 	-- 1. get table of feature vectors
 	features = { }
 	local height = imgs_train[1]:size(2)
-	local window = window or pca_window
+	w = w or window
 	local idx = 1
-	local ori_dim = height * window
+	local ori_dim = height * w
 	for i = 1, table.getn(imgs_train) do
-	-- for i = 1, 10 do
 		local width = imgs_train[i]:size(3)
-		for c = 1, width - window + 1 do
-			feature = imgs_train[i]:sub(1, 1, 1, height, c, c + window - 1):reshape(1, ori_dim)
+		for c = 1, width - w + 1 do
+			feature = imgs_train[i]:sub(1, 1, 1, height, c, c + w - 1):reshape(1, ori_dim)
 			features[idx] = feature
 			idx = idx + 1
 		end
@@ -60,7 +59,6 @@ function pca(d, dim, whiten)
 	ce = ce:sub(1, dim)
 	pca_data = d_m * t
 	whiten_factor = torch.diag(ce:clone():sqrt():pow(-1))
-	-- whiten_factor = 1 / torch.var(pca_data:sub(1, -1, 1, 1)) * whiten_factor[1][1]
 	v1 = torch.var(pca_data:sub(1, -1, 1, 1))
 	whiten_factor = whiten_factor * torch.sqrt(1/(v1 * whiten_factor[1][1]^2))
 	sigma = torch.sqrt(torch.var(pca_data))
@@ -210,11 +208,9 @@ function extractFeature(img)
 	local width = size[3]
 
 	local featureTable = { }
-	for i = 1, width do
-		local feature = torch.Tensor(1, feature_len):fill(0)
-		for j = 1, height do
-			feature[1][j] = img[1][j][i]
-		end
+	for i = 1, width - window + 1 do
+
+		local feature = img:sub(1, 1, 1, height, i, i + window - 1):reshape(1, feature_len)
 		if (use_pca == true) then
 			featureTable[i] = (feature - mean_over_dim) * pca_transform
 		else
