@@ -1,4 +1,4 @@
-use_cuda = true
+use_cuda = false
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -13,7 +13,7 @@ require 'data'
 require 'image'
 
 
-model_4()
+model_5()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 eps = -1e-5
 use_sgd = false

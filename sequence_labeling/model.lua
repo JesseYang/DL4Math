@@ -148,12 +148,15 @@ end
 function model_5()
 	-- the rnn model
 	use_rnn = true
+	use_pca = true
+	pca_dim = 80
+	window = 1
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
 	feature_len = padding_height
-	hidden_size = 50
+	hidden_size = 100
 
 	l1_1 = nn.LSTM(feature_len, hidden_size)
 	l1_2 = nn.LSTM(feature_len, hidden_size)
@@ -164,7 +167,7 @@ function model_5()
 	mergeSeq_1 = nn.Sequencer(merge_1)
 
 	concat_1 = nn.ConcatTable()
-	concat_1:add(fwdSeq_1):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq_1))
+	concat_1:add(fwdSeq_1):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq_1):add(nn.ReverseTable()))
 	brnn_1 = nn.Sequential()
 		:add(concat_1)
 		:add(nn.ZipTable())
@@ -180,7 +183,7 @@ function model_5()
 	mergeSeq_2 = nn.Sequencer(merge_2)
 
 	concat_2 = nn.ConcatTable()
-	concat_2:add(fwdSeq_2):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq_2))
+	concat_2:add(fwdSeq_2):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq_2):add(nn.ReverseTable()))
 	brnn_2 = nn.Sequential()
 		:add(concat_2)
 		:add(nn.ZipTable())
