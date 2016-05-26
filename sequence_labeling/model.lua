@@ -189,10 +189,26 @@ function model_5()
 		:add(nn.ZipTable())
 		:add(mergeSeq_2)
 
+	l3_1 = nn.LSTM(2 * hidden_size, hidden_size)
+	l3_2 = nn.LSTM(2 * hidden_size, hidden_size)
+
+	fwdSeq_3 = nn.Sequencer(l3_1)
+	bwdSeq_3 = nn.Sequencer(l3_2)
+	merge_3 = nn.JoinTable(1, 1)
+	mergeSeq_3 = nn.Sequencer(merge_3)
+
+	concat_3 = nn.ConcatTable()
+	concat_3:add(fwdSeq_3):add(nn.Sequential():add(nn.ReverseTable()):add(bwdSeq_3):add(nn.ReverseTable()))
+	brnn_3 = nn.Sequential()
+		:add(concat_3)
+		:add(nn.ZipTable())
+		:add(mergeSeq_3)
+
 	o = nn.Linear(hidden_size * 2, klass)
 	rnn = nn.Sequential()
 		:add(brnn_1)
 		:add(brnn_2)
+		:add(brnn_3)
 		:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
 
 	s = use_cuda == true and rnn:cuda() or rnn

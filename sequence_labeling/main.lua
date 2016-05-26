@@ -1,4 +1,4 @@
-use_cuda = false
+use_cuda = true
 require 'torch'
 require 'nn'
 if (use_cuda) then
