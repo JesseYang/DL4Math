@@ -1,4 +1,4 @@
-use_cuda = false
+use_cuda = true
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -495,7 +495,7 @@ function train_epoch(epoch_num)
 		io.write(". Ave loss: " .. loss_cur_epoch .. ".")
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
-		-- calTrainErrRate()
+		calTrainErrRate()
 		calTestErrRate()
 		io.write("\n")
 
@@ -576,5 +576,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
--- load_model("target")
--- train_epoch(500)
+-- load_model(7)
+train_epoch(500)
