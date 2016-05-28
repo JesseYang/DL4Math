@@ -168,6 +168,7 @@ end
 
 function showDataResult(img_idx)
 
+	s:evaluate()
 	local ori_img = ori_imgs_type[img_idx]
 	local img = imgs_type[img_idx]
 	local label = labels_type[img_idx]
@@ -304,6 +305,7 @@ function showTrainResultByName(img_name)
 end
 
 function calDataErrRate()
+	s:evaluate()
 	print("Error rate on " .. type_str .. " set (image number: " .. table.getn(imgs_type) .. ")")
 	local err_num = 0
 	for img_idx = 1,table.getn(imgs_type) do
@@ -473,6 +475,7 @@ end
 
 function train_epoch(epoch_num)
 	for e = 1, epoch_num do
+		s:training()
 		nClock = os.clock() 
 		local huge_error = train(table.getn(imgs_train))
 		if (error_occur == true) then
@@ -495,12 +498,13 @@ function train_epoch(epoch_num)
 		io.write(". Ave loss: " .. loss_cur_epoch .. ".")
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
+		s:evaluate()
 		calTrainErrRate()
 		calTestErrRate()
 		io.write("\n")
 
 		-- save the model file
-		if (epoch % 3 == 1) then
+		if (epoch % 1 == 1) then
 			save_model(epoch)
 		end
 	end

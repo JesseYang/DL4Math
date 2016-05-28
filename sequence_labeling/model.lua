@@ -158,8 +158,8 @@ function model_5()
 	feature_len = padding_height
 	hidden_size = 100
 
-	l1_1 = nn.LSTM(feature_len, hidden_size)
-	l1_2 = nn.LSTM(feature_len, hidden_size)
+	l1_1 = nn.LSTM(pca_dim, hidden_size)
+	l1_2 = nn.LSTM(pca_dim, hidden_size)
 
 	fwdSeq_1 = nn.Sequencer(l1_1)
 	bwdSeq_1 = nn.Sequencer(l1_2)
@@ -206,9 +206,13 @@ function model_5()
 
 	o = nn.Linear(hidden_size * 2, klass)
 	rnn = nn.Sequential()
+		-- :add(nn.Sequencer(nn.Dropout(0.2)))
 		:add(brnn_1)
+		-- :add(nn.Sequencer(nn.Dropout()))
 		:add(brnn_2)
-		:add(brnn_3)
+		-- :add(nn.Sequencer(nn.Dropout()))
+		-- :add(brnn_3)
+		-- :add(nn.Sequencer(nn.Dropout()))
 		:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
 
 	s = use_cuda == true and rnn:cuda() or rnn

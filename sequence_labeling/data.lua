@@ -199,7 +199,7 @@ function load_training_data()
 	prefix_ary_type = prefix_ary_train
 	type_str = "training"
 
-	load_data()
+	load_jiafa_data()
 
 	train_idx = 1
 end
@@ -220,7 +220,7 @@ function load_test_data()
 	prefix_ary_type = prefix_ary_test
 	type_str = "test"
 
-	load_data()
+	load_jiafa_data()
 
 	test_idx = 1
 end
