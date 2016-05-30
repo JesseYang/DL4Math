@@ -505,7 +505,7 @@ function train_epoch(epoch_num)
 
 		-- save the model file
 		-- if (epoch % 1 == 1) then
-		-- save_model(epoch)
+		save_model(epoch)
 		-- end
 	end
 end
