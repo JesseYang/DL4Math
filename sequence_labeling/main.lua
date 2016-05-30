@@ -1,4 +1,4 @@
-use_cuda = true
+use_cuda = false
 require 'torch'
 require 'nn'
 if (use_cuda) then
@@ -13,7 +13,7 @@ require 'data'
 require 'image'
 
 
-model_5()
+model_4()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 eps = -1e-5
 use_sgd = false
@@ -504,9 +504,7 @@ function train_epoch(epoch_num)
 		io.write("\n")
 
 		-- save the model file
-		if (epoch % 1 == 1) then
-			save_model(epoch)
-		end
+		save_model(epoch)
 	end
 end
 
@@ -581,4 +579,4 @@ end
 -- torch.save("models/debug.mdl", m)
 
 -- load_model(7)
-train_epoch(500)
+-- train_epoch(500)

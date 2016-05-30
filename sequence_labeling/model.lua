@@ -110,7 +110,8 @@ function model_4()
 	use_pca = true
 	pca_dim = 80
 	window = 1
-	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	-- label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "=" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
@@ -151,7 +152,8 @@ function model_5()
 	use_pca = true
 	pca_dim = 80
 	window = 1
-	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	-- label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "=" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
@@ -209,7 +211,7 @@ function model_5()
 		-- :add(nn.Sequencer(nn.Dropout(0.2)))
 		:add(brnn_1)
 		-- :add(nn.Sequencer(nn.Dropout()))
-		:add(brnn_2)
+		-- :add(brnn_2)
 		-- :add(nn.Sequencer(nn.Dropout()))
 		-- :add(brnn_3)
 		-- :add(nn.Sequencer(nn.Dropout()))
