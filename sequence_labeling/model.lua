@@ -58,15 +58,15 @@ function model_2()
 	m = nn.Sequential()
 	-- first stage
 	m:add(nn.SpatialConvolution(1, 16, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
-	m:add(nn.ReLU())
+	m:add(nn.Tanh())
 	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 	-- second stage
 	m:add(nn.SpatialConvolution(16, 32, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
-	m:add(nn.ReLU())
+	m:add(nn.Tanh())
 	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 	-- third stage
 	m:add(nn.SpatialConvolution(32, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
-	m:add(nn.ReLU())
+	m:add(nn.Tanh())
 	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
 	-- last stage: standard 1-layer mlp
 	m:add(nn.Reshape(64 * 10 * 5))

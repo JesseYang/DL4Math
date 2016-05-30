@@ -128,22 +128,22 @@ end
 
 function load_data()
 	local type_idx = 1
-	for label_filename in lfs.dir(type_str .. "_set/charSeq") do
+	for label_filename in lfs.dir(type_str .. "_set_equation/charSeq") do
 		if (label_filename ~= "." and label_filename ~= "..") then
 			local prefix = mysplit(label_filename, ".")[1]
-			local label_filepath = type_str .. "_set/charSeq/" .. label_filename
+			local label_filepath = type_str .. "_set_equation/charSeq/" .. label_filename
 			local label_file = assert(io.open(label_filepath, "r"))
 			local label = label_file:read()
 			label_file:close()
 
 			if (label ~= "" and label ~= nil) then
-				local print_style_filepath = type_str .. "_set/printstyle/" .. prefix .. ".txt"
+				local print_style_filepath = type_str .. "_set_equation/printstyle/" .. prefix .. ".txt"
 				local print_style_file = assert(io.open(print_style_filepath, "r"))
 				local print_style = print_style_file:read()
 				print_style_file:close()
 				-- if (print_style == "0") then
 				if (true) then
-					local img_filepath = type_str .. "_set/compressed_lines/" .. prefix .. "_compress.jpg"
+					local img_filepath = type_str .. "_set_equation/compressed_lines/" .. prefix .. "_compress.jpg"
 					print(img_filepath)
 					local raw_img = cv.imread{img_filepath, cv.IMREAD_GRAYSCALE}
 					local size = raw_img:size()
