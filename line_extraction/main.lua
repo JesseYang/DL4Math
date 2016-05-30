@@ -45,12 +45,6 @@ function water_flow(im_bw)
 		if (i > 1) then
 			im_bw_left:sub(1,height, i,i):copy(im_bw_left:sub(1,height, i-1,i-1))
 		end
-		--[[
-		local sum
-		if (i > angle_level) then
-			sum = torch.sum(im_bw_left:sub(1, height, i-angle_level, i-1), 2)
-		end
-		]]
 		for j = 1, height do
 			if (im_bw[j][i] == 255) then
 				if (i == 1) then
@@ -62,7 +56,6 @@ function water_flow(im_bw)
 							-- check the above row
 							if (j > 1) then
 								if (torch.sum(im_bw_left:sub(j-1, j-1, i-angle_level, i-1)) == 122 * angle_level) then
-								-- if (sum[j-1] == 122 * angle_level) then
 									if (im_bw[j-1][i] == 255) then
 										im_bw_left[j][i] = 122
 									end
@@ -71,7 +64,6 @@ function water_flow(im_bw)
 							-- check the below row
 							if (im_bw_left[j][i] ~= 122 and j < height) then
 								if (torch.sum(im_bw_left:sub(j+1, j+1, i-angle_level, i-1)) == 122 * angle_level) then
-								-- if (sum[j+1] == 122 * angle_level) then
 									if (im_bw[j+1][i] == 255) then
 										im_bw_left[j][i] = 122
 									end
@@ -88,7 +80,7 @@ function water_flow(im_bw)
 	return im_bw_left
 end
 
-function line_extraction_2(im_bw, im_bw_for_blur, filename)
+function line_extraction_2(im_bw, filename)
 	size = im_bw:size()
 	height = size[1]
 	width = size[2]
@@ -307,7 +299,7 @@ function main()
 			dilate_img = cv.addWeighted{dialate_equal_img, 0.5, other_fraction_img, 0.5, 0}
 			dilate_thresh_img = dilate_img:clone()
 			cv.threshold{dilate_img, dilate_thresh_img, 250, 255, cv.THRESH_BINARY}
-			local for_line_label_img = line_extraction_2(dilate_thresh_img, ori_img, filename_prefix)
+			local for_line_label_img = line_extraction_2(dilate_thresh_img, filename_prefix)
 
 			-- labeling the results
 			local line_label_img = torch.IntTensor(dilate_thresh_img:size())
@@ -439,6 +431,9 @@ function tidyup()
 	end
 end
 
+function extract_lines(binary_img)
+	lines = { }
+end
 
 function line_extraction_jiafa_data()
 	img_name_table = { }
@@ -452,7 +447,7 @@ function line_extraction_jiafa_data()
 	line_idx = 1
 	for idx = 1, table.getn(img_name_table) do
 		img_file = cv.imread { "jiafa_data/" .. img_name_table[idx], cv.IMREAD_GRAYSCALE }
-		for_line_label_img = line_extraction_2(img_file, img_file, idx)
+		for_line_label_img = line_extraction_2(img_file, idx)
 
 		-- labeling the results
 		line_label_img = torch.IntTensor(img_file:size())
@@ -470,8 +465,6 @@ function line_extraction_jiafa_data()
 			lines[i] = cur_line * 255
 			non_zero_num[i] = torch.nonzero(cur_line):size()[1]
 			rects[i] = cv.boundingRect{cur_line}
-			-- cv.imshow { "tmp", lines[i] }
-			-- cv.waitKey {0}
 		end
 
 
@@ -523,8 +516,6 @@ function line_extraction_jiafa_data()
 			final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
 			final_lines_local[c] = m:forward(final_lines_local[c])
 			final_line_locations[c] = rect
-			-- cv.imshow{"final_line", final_lines_local[c]}
-			-- cv.waitKey {0}
 			cv.imwrite { "lines/" .. line_idx .. ".bmp", final_lines_local[c] }
 			line_idx = line_idx + 1
 		end
