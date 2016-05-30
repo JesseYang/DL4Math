@@ -497,9 +497,12 @@ function extract_lines(binary_img)
 		final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
 		local rect = cv.boundingRect{temp}
 		final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
-		final_lines_local[c] = m:forward(final_lines_local[c])
+		final_lines_local[c] = m:forward(final_lines_local[c]):clone()
 		final_line_locations[c] = rect
 		line_idx = line_idx + 1
+	end
+	for i = 1, table.getn(final_lines_local) do
+		cv.imwrite { "line_" .. i .. ".bmp", final_lines_local[i] }
 	end
 	return final_lines_local
 end

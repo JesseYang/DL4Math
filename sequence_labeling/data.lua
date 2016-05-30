@@ -3,11 +3,11 @@ require 'cv.imgproc'
 require 'cv.imgcodecs'
 require 'cv.highgui'
 require 'torch'
-require 'util'
+require './util'
 require 'image'
 require 'gnuplot'
 require 'lfs'
-require 'model'
+require './model'
 
 train_mean = 0
 stride = 1
@@ -85,14 +85,14 @@ end
 
 function load_jiafa_data()
 	local type_idx = 1
-	for label_filename in lfs.dir(type_str .. "_set/charSeq") do
+	for label_filename in lfs.dir("sequence_labeling/" .. type_str .. "_set/charSeq") do
 		if (label_filename ~= "." and label_filename ~= "..") then
-			local label_filepath = type_str .. "_set/charSeq/" .. label_filename
+			local label_filepath = "sequence_labeling/" .. type_str .. "_set/charSeq/" .. label_filename
 			local label_file = assert(io.open(label_filepath, "r"))
 			local label = label_file:read()
 			label_file:close()
 			if (label ~= "" and label ~= nil) then
-				local img_filepath = type_str .. "_set/compressed_lines/" .. label_filename .. ".bmp"
+				local img_filepath = "sequence_labeling/" .. type_str .. "_set/compressed_lines/" .. label_filename .. ".bmp"
 				print(img_filepath)
 				local raw_img = cv.imread{img_filepath, cv.IMREAD_GRAYSCALE}
 				local size = raw_img:size()

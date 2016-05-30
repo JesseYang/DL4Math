@@ -8,8 +8,8 @@ end
 require 'nnx'
 require 'optim'
 require 'rnn'
-require 'model'
-require 'data'
+require './model'
+require './data'
 require 'image'
 
 
@@ -166,6 +166,30 @@ function prefix_search_decode(pred_param)
 	return table.concat(pred_str_ary)
 end
 
+function scale_and_padding(img)
+	local size = img:size()
+	local height = size[1]
+	local width = size[2]
+	local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
+	padding_img
+		:narrow(3, horizon_pad + 1, width)
+		:narrow(2, math.max(1, math.ceil((padding_height - height) / 2)), height)[1]
+		:copy(img)
+	return padding_img
+end
+
+function recognize(img)
+	local inputTable = getInputTableFromImg(img)
+	local input_size = getInputSize(inputTable)
+
+	local outputTable = s:forward(inputTable)
+	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	for i = 1, input_size do
+		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
+	end
+	return prefix_search_decode(softmax(pred))
+end
+
 function showDataResult(img_idx)
 
 	s:evaluate()
@@ -223,39 +247,6 @@ function showDataResult(img_idx)
 	end
 	print(idx_str)
 
-	-- put the prediction results and the original image into one image
-	--[[
-	img_size = ori_img:size()
-	height = img_size[2]
-	width = img_size[3]
-	label_size = table.getn(label_set)
-	com_img = torch.Tensor(1, padding_height + (label_size + 1) * 3, width + 2 * horizon_pad):fill(255)
-	com_img
-		:narrow(3, horizon_pad + 1, width)
-		:narrow(2, math.max(0, math.ceil((padding_height - height) / 2)) + (label_size + 1) * 3, height)
-		:copy(ori_img)
-
-	local data_idx = 1
-	for i = 1, width + 2 * horizon_pad - window + 1, stride do
-		if (pred_data[data_idx] ~= -1) then
-			com_img[1][(pred_data[data_idx] - 1) * 3 + 1][i + math.floor(window / 2)] = 0
-			com_img[1][(pred_data[data_idx] - 1) * 3 + 2][i + math.floor(window / 2)] = 0
-			com_img[1][(pred_data[data_idx] - 1) * 3 + 3][i + math.floor(window / 2)] = 0
-		end
-		data_idx = data_idx + 1
-	end
-
-	image.display(com_img)
-
-	for i = 1,table.getn(inputTable) do
-		print(i .. ": " .. string.sub(pred_str_1, i, i))
-		image.display(inputTable[i])
-		local ii = io.read()
-		if (ii == "q") then
-			break
-		end
-	end
-	]]
 end
 
 function showTestResult(img_idx)
@@ -522,54 +513,17 @@ function save_model(model_idx)
 end
 
 function load_model(model_idx)
-	if (use_mixed == true) then
-		if (use_pre_train ~= true) then
-			m = torch.load("models/" .. model_idx .. "_m.mdl")
-		end
-		l1 = torch.load("models/" .. model_idx .. "_l1.mdl")
-		l2 = torch.load("models/" .. model_idx .. "_l2.mdl")
-		o = torch.load("models/" .. model_idx .. "_o.mdl")
-
-		if (use_pre_train == true) then
-			fwd = l1
-			bwd = l2
-		else
-			fwd = nn.Sequential()
-				:add(m)
-				:add(l1)
-			bwd = nn.Sequential()
-				:add(m)
-				:add(l2)
-		end
-
-		fwdSeq = nn.Sequencer(fwd)
-		bwdSeq = nn.Sequencer(bwd)
-		merge = nn.JoinTable(1, 1)
-		mergeSeq = nn.Sequencer(merge)
-
-		parallel = nn.ParallelTable()
-		parallel:add(fwdSeq):add(bwdSeq)
-		brnn = nn.Sequential()
-			:add(parallel)
-			:add(nn.ZipTable())
-			:add(mergeSeq)
-
-		rnn = nn.Sequential()
-			:add(brnn) 
-			:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
-
-		s = use_cuda == true and rnn:cuda() or rnn
-		x, dl_dx = s:getParameters()
+	m = torch.load("sequence_labeling/models/" .. model_idx .. ".mdl")
+	x, dl_dx = m:getParameters()
+	if (use_rnn) then
+		s = m
 	else
-		m = torch.load("models/" .. model_idx .. ".mdl")
-		x, dl_dx = m:getParameters()
-		if (use_rnn) then
-			s = m
-		else
-			s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
-		end
+		s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 	end
 end
+
+load_model("jiafa_1l_400h")
+-- s.evaluate()
 
 -- m = torch.load("models/debug.mdl")
 -- s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
