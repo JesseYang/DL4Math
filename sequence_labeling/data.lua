@@ -173,6 +173,9 @@ function load_data()
 					end
 				end
 			end
+			if (type_idx == 11) then
+				break
+			end
 		end
 	end
 
@@ -199,7 +202,7 @@ function load_training_data()
 	prefix_ary_type = prefix_ary_train
 	type_str = "training"
 
-	load_jiafa_data()
+	load_data()
 
 	train_idx = 1
 end
@@ -220,7 +223,7 @@ function load_test_data()
 	prefix_ary_type = prefix_ary_test
 	type_str = "test"
 
-	load_jiafa_data()
+	load_data()
 
 	test_idx = 1
 end

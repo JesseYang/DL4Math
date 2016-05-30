@@ -75,35 +75,6 @@ function model_2()
 	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
 end
 
-function model_3()
-	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":", "k" }
-	klass = table.getn(label_set) + 1
-	ksize = 5
-	window = 40
-	padding_height = 80
-
-	horizon_pad = 20
-
-	m = nn.Sequential()
-	-- first stage
-	m:add(nn.SpatialConvolution(1, 16, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
-	m:add(nn.ReLU())
-	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-	-- second stage
-	m:add(nn.SpatialConvolution(16, 32, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
-	m:add(nn.ReLU())
-	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-	-- third stage
-	m:add(nn.SpatialConvolution(32, 64, ksize, ksize, 1, 1, (ksize - 1) / 2, (ksize - 1) / 2))
-	m:add(nn.ReLU())
-	m:add(nn.SpatialMaxPooling(2, 2, 2, 2))
-	-- last stage: standard 1-layer mlp
-	m:add(nn.Reshape(64 * 10 * 5))
-	m:add(nn.Linear(64 * 10 * 5, klass))
-
-	s = use_cuda == true and nn.Sequencer(m):cuda() or nn.Sequencer(m)
-end
-
 function model_4()
 	-- the rnn model
 	use_rnn = true
@@ -151,15 +122,17 @@ function model_5()
 	use_pca = true
 	pca_dim = 80
 	window = 1
+	rho = 30
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
+	-- label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "=" }
 	klass = table.getn(label_set) + 1
 	padding_height = 80
 	horizon_pad = 0
 	feature_len = padding_height
 	hidden_size = 100
 
-	l1_1 = nn.LSTM(pca_dim, hidden_size)
-	l1_2 = nn.LSTM(pca_dim, hidden_size)
+	l1_1 = nn.LSTM(pca_dim, hidden_size, rho)
+	l1_2 = nn.LSTM(pca_dim, hidden_size, rho)
 
 	fwdSeq_1 = nn.Sequencer(l1_1)
 	bwdSeq_1 = nn.Sequencer(l1_2)
@@ -174,8 +147,8 @@ function model_5()
 		:add(mergeSeq_1)
 
 
-	l2_1 = nn.LSTM(2 * hidden_size, hidden_size)
-	l2_2 = nn.LSTM(2 * hidden_size, hidden_size)
+	l2_1 = nn.LSTM(2 * hidden_size, hidden_size, rho)
+	l2_2 = nn.LSTM(2 * hidden_size, hidden_size, rho)
 
 	fwdSeq_2 = nn.Sequencer(l2_1)
 	bwdSeq_2 = nn.Sequencer(l2_2)
@@ -189,8 +162,9 @@ function model_5()
 		:add(nn.ZipTable())
 		:add(mergeSeq_2)
 
-	l3_1 = nn.LSTM(2 * hidden_size, hidden_size)
-	l3_2 = nn.LSTM(2 * hidden_size, hidden_size)
+	--[[
+	l3_1 = nn.LSTM(2 * hidden_size, hidden_size, rho)
+	l3_2 = nn.LSTM(2 * hidden_size, hidden_size, rho)
 
 	fwdSeq_3 = nn.Sequencer(l3_1)
 	bwdSeq_3 = nn.Sequencer(l3_2)
@@ -203,6 +177,7 @@ function model_5()
 		:add(concat_3)
 		:add(nn.ZipTable())
 		:add(mergeSeq_3)
+	]]
 
 	o = nn.Linear(hidden_size * 2, klass)
 	rnn = nn.Sequential()

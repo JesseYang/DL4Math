@@ -13,10 +13,10 @@ require 'data'
 require 'image'
 
 
-model_5()
+model_2()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 eps = -1e-5
-use_sgd = false
+use_sgd = true
 
 -- Prepare the data
 load_training_data()
@@ -343,9 +343,9 @@ function calDataErrRate()
 		end
 		local pred_str = table.concat(pred_str_ary)
 		if (pred_str ~= label_str) then
-			-- print("PRED: " .. pred_str)
-			-- print("LABEL: " .. label_str)
-			-- print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
+			print("PRED: " .. pred_str)
+			print("LABEL: " .. label_str)
+			print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
 			err_num = err_num + 1
 		end
 	end
@@ -412,7 +412,7 @@ end
 
 -- sgd parameters
 sgd_params = {
-	learningRate = 1e-3,
+	learningRate = 1e-4,
 	learningRateDecay = 0,
 	weightDecay = 0,
 	momentum = 0.9
@@ -499,14 +499,14 @@ function train_epoch(epoch_num)
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
 		s:evaluate()
-		calTrainErrRate()
-		calTestErrRate()
+		-- calTrainErrRate()
+		-- calTestErrRate()
 		io.write("\n")
 
 		-- save the model file
-		if (epoch % 1 == 1) then
-			save_model(epoch)
-		end
+		-- if (epoch % 1 == 1) then
+		-- save_model(epoch)
+		-- end
 	end
 end
 
@@ -580,5 +580,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
--- load_model(7)
-train_epoch(500)
+-- load_model("equation_3l_200h")
+-- train_epoch(500)
