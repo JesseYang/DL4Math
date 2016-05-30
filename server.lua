@@ -19,12 +19,15 @@ app.post('/upload', function(req, res)
 	img = binarize(img)
 	-- 3. extract lines
 	lines = extract_lines(img)
+	for i = 1, table.getn(lines) do
+		cv.imwrite { "line_" .. i .. ".jpg", lines[i] }
+	end
+	-- res.send("done")
 	results = { }
 	result_str = ""
 	-- 4. scale and padding to 80 pixels high, and then recognize
 	for n = 1, table.getn(lines) do
 		preprocess_line = scale_and_padding(lines[n])
-		-- cv.imwrite { "line_" .. n .. ".bmp", lines[n] }
 		results[n] = recognize(preprocess_line)
 		result_str = result_str .. results[n] .. "\n"
 	end
@@ -37,5 +40,6 @@ app.get('/upload', function(req, res)
 end)
 
 -- app.listen({host="10.50.101.163", port="8080"})
-app.listen({host="127.0.0.1", port="8080"})
+-- app.listen({host="127.0.0.1", port="8080"})
+app.listen({host="10.8.0.8", port="8080"})
 
