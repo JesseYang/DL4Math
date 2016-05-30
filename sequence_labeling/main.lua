@@ -8,8 +8,8 @@ end
 require 'nnx'
 require 'optim'
 require 'rnn'
-require 'model'
-require 'data'
+require './model'
+require './data'
 require 'image'
 
 
@@ -164,6 +164,54 @@ function prefix_search_decode(pred_param)
 		pred_str_ary[i] = label_set[i_star[i]]
 	end
 	return table.concat(pred_str_ary)
+end
+
+function scale_and_padding(img)
+	local size = img:size()
+	local height = size[1]
+	local width = size[2]
+	local padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
+	padding_img
+		:narrow(3, horizon_pad + 1, width)
+		:narrow(2, math.max(1, math.ceil((padding_height - height) / 2)), height)[1]
+		:copy(img)
+	return padding_img
+end
+
+function recognize(img)
+	local inputTable = getInputTableFromImg(img)
+	local input_size = getInputSize(inputTable)
+
+	local outputTable = s:forward(inputTable)
+	pred = use_cuda and torch.CudaTensor(1, input_size, klass) or torch.Tensor(1, input_size, klass)
+	for i = 1, input_size do
+		pred[1][i] = torch.reshape(outputTable[i], 1, klass)
+	end
+
+	local rank_num = 3
+	pred_data = { }
+	local pred_clone = pred:clone()
+	for r = 1,rank_num do
+		local pred_str = ""
+		for i = 1, input_size do
+			local temp, idx = torch.max(pred_clone[1][i], 1)
+			pred_clone[1][i][idx[1]] = -1e10
+			if (idx[1] == 1) then
+				pred_str = pred_str .. " "
+				if (r == 1) then
+					pred_data[i] = -1
+				end
+			else
+				pred_str = pred_str .. label_set[idx[1] - 1]
+				if (r == 1) then
+					pred_data[i] = idx[1] - 1
+				end
+			end
+		end
+		print(pred_str)
+	end
+
+	return prefix_search_decode(softmax(pred))
 end
 
 function showDataResult(img_idx)
@@ -526,7 +574,7 @@ end
 function load_model(model_idx)
 	if (use_mixed == true) then
 		if (use_pre_train ~= true) then
-			m = torch.load("models/" .. model_idx .. "_m.mdl")
+			m = torch.load("sequence_labeling/models/" .. model_idx .. "_m.mdl")
 		end
 		l1 = torch.load("models/" .. model_idx .. "_l1.mdl")
 		l2 = torch.load("models/" .. model_idx .. "_l2.mdl")
@@ -563,7 +611,7 @@ function load_model(model_idx)
 		s = use_cuda == true and rnn:cuda() or rnn
 		x, dl_dx = s:getParameters()
 	else
-		m = torch.load("models/" .. model_idx .. ".mdl")
+		m = torch.load("sequence_labeling/models/" .. model_idx .. ".mdl")
 		x, dl_dx = m:getParameters()
 		if (use_rnn) then
 			s = m
@@ -580,5 +628,5 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
--- load_model("equation_3l_200h")
+load_model("target")
 -- train_epoch(500)
