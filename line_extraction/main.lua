@@ -1,11 +1,11 @@
 --local cv = require 'cv'
-local cv = require 'cv'
+cv = require 'cv'
 require 'cv.imgproc'
 require 'cv.imgcodecs'
 require 'cv.highgui'
 require 'nn'
 require 'lfs'
-require 'util'
+require './util'
 require 'image'
 
 data_path = "data_set/"
@@ -98,7 +98,7 @@ function line_extraction_2(im_bw, filename)
 			end
 		end
 	end
-	cv.imwrite { "water_imgs/" .. filename .. "_water.jpg", im_bw_water }
+	-- cv.imwrite { "water_imgs/" .. filename .. "_water.jpg", im_bw_water }
 	return im_for_label
 end
 
@@ -432,7 +432,76 @@ function tidyup()
 end
 
 function extract_lines(binary_img)
+	local line_idx = 1
+	for_line_label_img = line_extraction_2(binary_img, idx)
+
+	line_label_img = torch.IntTensor(binary_img:size())
+	label_num = cv.connectedComponents{for_line_label_img, line_label_img, 4}
+	line_label_img = line_label_img:byte()
+
 	lines = { }
+	non_zero_num = { }
+	rects = { }
+	for i = 1, label_num - 1 do
+		cur_line_label_img = torch.ne(torch.eq(line_label_img, i), 1) * 255
+		cur_line = cv.addWeighted{cur_line_label_img, 0.5, binary_img, 0.5, 0}
+		cur_line = torch.eq(cur_line, 0)
+		lines[i] = cur_line * 255
+		non_zero_num[i] = torch.nonzero(cur_line):size()[1]
+		rects[i] = cv.boundingRect{cur_line}
+	end
+
+	-- find tiny lines and combine
+	local tiny_num_threshold = 30
+	local tiny_height_threshold = 7
+	local ignore_num_threshold = 8
+	tiny_lines = { }
+	normal_lines = { }
+	normal_lines_with_tiny = { }
+	for i = 1, label_num - 1 do
+		if (non_zero_num[i] > ignore_num_threshold) then
+			if (non_zero_num[i] < tiny_num_threshold or rects[i].height < tiny_height_threshold) then
+				table.insert(tiny_lines, i)
+			else
+				table.insert(normal_lines, i)
+				table.insert(normal_lines_with_tiny, {i})
+			end
+		end
+	end
+	for i = 1, table.getn(tiny_lines) do
+		local min_dist = -1
+		local min_idx = -1
+		local min_dist_threshold = 50
+		for j = 1, table.getn(normal_lines) do
+			local cur_dist = rect_distance(rects[tiny_lines[i]], rects[normal_lines[j]])
+			if (min_dist == -1 or cur_dist < min_dist) then
+				min_dist = cur_dist
+				min_idx = j
+			end
+		end
+		if (min_dist < min_dist_threshold) then
+			table.insert(normal_lines_with_tiny[min_idx], tiny_lines[i])
+		end
+	end
+
+	local m = nn.Sequential()
+	m:add(nn.Padding(1, 5, 2, 255)):add(nn.Padding(1, -5, 2, 255)):add(nn.Padding(2, 5, 2, 255)):add(nn.Padding(2, -5, 2, 255))
+	local final_lines = { }
+	local final_line_locations = { }
+	final_lines_local = { }
+	for c = 1, table.getn(normal_lines_with_tiny) do
+		local temp = lines[normal_lines_with_tiny[c][1]]
+		for i = 2, table.getn(normal_lines_with_tiny[c]) do
+			temp = cv.addWeighted{temp, 0.5, lines[normal_lines_with_tiny[c][i]], 0.5, 0}
+		end
+		final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
+		local rect = cv.boundingRect{temp}
+		final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
+		final_lines_local[c] = m:forward(final_lines_local[c])
+		final_line_locations[c] = rect
+		line_idx = line_idx + 1
+	end
+	return final_lines_local
 end
 
 function line_extraction_jiafa_data()
@@ -554,4 +623,4 @@ function get_jiafa_data_max_height()
 	print(max_height)
 end
 
-get_jiafa_data_max_height()
+-- get_jiafa_data_max_height()
