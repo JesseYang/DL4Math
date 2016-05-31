@@ -98,7 +98,7 @@ function line_extraction_2(im_bw, filename)
 			end
 		end
 	end
-	-- cv.imwrite { "water_imgs/" .. filename .. "_water.jpg", im_bw_water }
+	cv.imwrite { "water_images/" .. filename .. "_water.jpg", im_bw_water }
 	return im_for_label
 end
 

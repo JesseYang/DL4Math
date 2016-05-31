@@ -109,7 +109,6 @@ function load_data()
 			end
 
 			imgs_type_idx = imgs_type_idx + 1
-			break
 		end
 	end
 

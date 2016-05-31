@@ -12,6 +12,8 @@ require './model'
 train_mean = 0
 stride = 1
 
+
+
 -- input are images
 -- return:
 ---- 1. sorted eigen values
@@ -81,49 +83,6 @@ function get_label_by_str(label_str)
 		char_idx = char_idx + 1
 	end
 	return result
-end
-
-function load_jiafa_data()
-	local type_idx = 1
-	for label_filename in lfs.dir(type_str .. "_set/charSeq") do
-		if (label_filename ~= "." and label_filename ~= "..") then
-			local label_filepath = type_str .. "_set/charSeq/" .. label_filename
-			local label_file = assert(io.open(label_filepath, "r"))
-			local label = label_file:read()
-			label_file:close()
-			if (label ~= "" and label ~= nil) then
-				local img_filepath = type_str .. "_set/compressed_lines/" .. label_filename .. ".bmp"
-				print(img_filepath)
-				local raw_img = cv.imread{img_filepath, cv.IMREAD_GRAYSCALE}
-				local size = raw_img:size()
-				local height = size[1]
-				local width = size[2]
-				if (height <= padding_height) then
-					local img = torch.ByteTensor(1, height, width)
-					cv.threshold{raw_img, img[1], 10, 255, cv.THRESH_BINARY}
-					ori_imgs_type[type_idx] = img:clone()
-					img = img:float()
-					-- padding the img to the height padding_height
-					local padding_img
-					padding_img = torch.Tensor(1, padding_height, width + 2 * horizon_pad):fill(255)
-					padding_img
-						:narrow(3, horizon_pad + 1, width)
-						:narrow(2, math.max(1, math.ceil((padding_height - height) / 2)), height)
-						:copy(img)
-					imgs_type[type_idx] = padding_img
-					labels_type[type_idx] = get_label_by_str(label)
-					label_pathname_ary_type[type_idx] = label_filepath
-					prefix_ary_type[type_idx] = prefix
-					type_idx = type_idx + 1
-				end
-			end
-		end
-	end
-	for i = 1,table.getn(imgs_type) do
-		type_idx_ary[i] = i
-	end
-
-	print("Finish loading " .. type_str .. " jiafa data set. (data size: " .. table.getn(imgs_type) .. ")")
 end
 
 function load_data()

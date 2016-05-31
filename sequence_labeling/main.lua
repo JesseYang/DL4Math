@@ -190,6 +190,7 @@ function recognize(img)
 
 	local rank_num = 3
 	pred_data = { }
+	pred_str_1 = ""
 	local pred_clone = pred:clone()
 	for r = 1,rank_num do
 		local pred_str = ""
@@ -208,10 +209,41 @@ function recognize(img)
 				end
 			end
 		end
+		if (r == 1) then
+			pred_str_1 = pred_str
+		end
 		print(pred_str)
 	end
 
-	return prefix_search_decode(softmax(pred))
+	local result_ary = { }
+	local result_char_idx = 1
+	for i = 1, pred_str_1:len() do
+		local char = pred_str_1:sub(i,i)
+		if (char ~= " ") then
+			local prev_char
+			local next_char
+			prev_char = i == 1 and " " or pred_str_1:sub(i-1,i-1)
+			next_char = i == pred_str_1:len() and " " or pred_str_1:sub(i+1,i+1)
+			if (char == prev_char or char == next_char) then
+				if (result_char_idx == 1 or (result_ary[result_char_idx-1] ~= char)) then
+					result_ary[result_char_idx] = char
+					result_char_idx = result_char_idx + 1
+				end
+			end
+		end
+	end
+
+	--[[
+	for i = 1, table.getn(inputTable) do
+		print(pred_str_1:sub(i,i))
+		local temp = ((inputTable[i][1] * 1000) + 123):byte()
+		cv.imshow { "temp", temp }
+		cv.waitKey {0}
+	end
+	]]
+
+	-- return prefix_search_decode(softmax(pred))
+	return table.concat(result_ary)
 end
 
 function showDataResult(img_idx)

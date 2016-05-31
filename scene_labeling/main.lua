@@ -103,7 +103,7 @@ function plotResult(img_idx, show_pixel_err)
 		end
 	end
 	image.display(result, 3)
-	image.display(ground_truth, 3)
+	-- image.display(ground_truth, 3)
 end
 
 x, dl_dx = m:getParameters()

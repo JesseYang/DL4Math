@@ -9,6 +9,7 @@ require 'sequence_labeling/main'
 local app = require('waffle')
 
 app.post('/upload', function(req, res)
+
 	-- 1. convert to ByteTensor
 	img = req.form.file:toImage()
 	img = (img * 255):byte()
