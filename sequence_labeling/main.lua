@@ -16,7 +16,7 @@ require 'image'
 model_2()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 eps = -1e-5
-use_sgd = true
+use_sgd = false
 
 -- Prepare the data
 load_training_data()
@@ -224,7 +224,7 @@ function recognize(img)
 			local next_char
 			prev_char = i == 1 and " " or pred_str_1:sub(i-1,i-1)
 			next_char = i == pred_str_1:len() and " " or pred_str_1:sub(i+1,i+1)
-			if (char == prev_char or char == next_char) then
+			if (use_rnn or char == prev_char or char == next_char) then
 				if (result_char_idx == 1 or (result_ary[result_char_idx-1] ~= char)) then
 					result_ary[result_char_idx] = char
 					result_char_idx = result_char_idx + 1
@@ -423,9 +423,9 @@ function calDataErrRate()
 		end
 		local pred_str = table.concat(pred_str_ary)
 		if (pred_str ~= label_str) then
-			print("PRED: " .. pred_str)
-			print("LABEL: " .. label_str)
-			print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
+			-- print("PRED: " .. pred_str)
+			-- print("LABEL: " .. label_str)
+			-- print(img_idx .. ": " .. label_pathname_ary_type[img_idx])
 			err_num = err_num + 1
 		end
 	end
@@ -579,8 +579,8 @@ function train_epoch(epoch_num)
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
 		s:evaluate()
-		-- calTrainErrRate()
-		-- calTestErrRate()
+		calTrainErrRate()
+		calTestErrRate()
 		io.write("\n")
 
 		-- save the model file
@@ -599,7 +599,7 @@ function save_model(model_idx)
 		torch.save("models/" .. model_idx .. "_l2.mdl", l2)
 		torch.save("models/" .. model_idx .. "_o.mdl", o)
 	else
-		torch.save("models/" .. model_idx .. ".mdl", use_rnn and s or m)
+		torch.save("sequence_labeling/models/" .. model_idx .. ".mdl", use_rnn and s or m)
 	end
 end
 
@@ -660,5 +660,6 @@ end
 -- train_epoch(2)
 -- torch.save("models/debug.mdl", m)
 
+-- load_model("blstm_3l_200h_pca_80_rho_20")
 load_model("target")
 -- train_epoch(500)

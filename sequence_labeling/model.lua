@@ -122,7 +122,7 @@ function model_5()
 	use_pca = true
 	pca_dim = 80
 	window = 1
-	rho = 30
+	rho = 20
 	label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "/", "x", ".", "=", "(", ")", "f", "c", ":" }
 	-- label_set = { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "=" }
 	klass = table.getn(label_set) + 1
@@ -162,7 +162,6 @@ function model_5()
 		:add(nn.ZipTable())
 		:add(mergeSeq_2)
 
-	--[[
 	l3_1 = nn.LSTM(2 * hidden_size, hidden_size, rho)
 	l3_2 = nn.LSTM(2 * hidden_size, hidden_size, rho)
 
@@ -177,7 +176,6 @@ function model_5()
 		:add(concat_3)
 		:add(nn.ZipTable())
 		:add(mergeSeq_3)
-	]]
 
 	o = nn.Linear(hidden_size * 2, klass)
 	rnn = nn.Sequential()
@@ -186,7 +184,7 @@ function model_5()
 		-- :add(nn.Sequencer(nn.Dropout()))
 		:add(brnn_2)
 		-- :add(nn.Sequencer(nn.Dropout()))
-		-- :add(brnn_3)
+		:add(brnn_3)
 		-- :add(nn.Sequencer(nn.Dropout()))
 		:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
 

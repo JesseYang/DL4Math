@@ -433,7 +433,7 @@ end
 
 function extract_lines(binary_img)
 	local line_idx = 1
-	for_line_label_img = line_extraction_2(binary_img, idx)
+	for_line_label_img = line_extraction_2(binary_img, line_idx)
 
 	line_label_img = torch.IntTensor(binary_img:size())
 	label_num = cv.connectedComponents{for_line_label_img, line_label_img, 4}
