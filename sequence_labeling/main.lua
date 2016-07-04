@@ -13,7 +13,7 @@ require './data'
 require 'image'
 
 
-model_2()
+model_5()
 c = use_cuda == true and nn.CTCCriterion():cuda() or nn.CTCCriterion()
 eps = -1e-5
 use_sgd = false
@@ -579,13 +579,13 @@ function train_epoch(epoch_num)
 		loss_epoch[epoch] = loss_cur_epoch
 		io.write(" Execution time: " .. elapse .. "s.")
 		s:evaluate()
-		calTrainErrRate()
-		calTestErrRate()
+		-- calTrainErrRate()
+		-- calTestErrRate()
 		io.write("\n")
 
 		-- save the model file
 		-- if (epoch % 1 == 1) then
-		save_model(epoch)
+		-- save_model(epoch)
 		-- end
 	end
 end
@@ -661,5 +661,5 @@ end
 -- torch.save("models/debug.mdl", m)
 
 -- load_model("blstm_3l_200h_pca_80_rho_20")
-load_model("target")
+-- load_model("blstm_3l_200h_pca_80_rho_30")
 -- train_epoch(500)

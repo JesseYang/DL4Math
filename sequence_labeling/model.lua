@@ -182,9 +182,9 @@ function model_5()
 		-- :add(nn.Sequencer(nn.Dropout(0.2)))
 		:add(brnn_1)
 		-- :add(nn.Sequencer(nn.Dropout()))
-		:add(brnn_2)
+		-- :add(brnn_2)
 		-- :add(nn.Sequencer(nn.Dropout()))
-		:add(brnn_3)
+		-- :add(brnn_3)
 		-- :add(nn.Sequencer(nn.Dropout()))
 		:add(nn.Sequencer(o, 1)) -- times two due to JoinTable
 

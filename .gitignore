@@ -16,7 +16,7 @@ binarize/300dpi_binary_bak
 binarize/150dpi*
 binarize/150dpi_binary*
 binarize/*.jpg
-line_extraction/data_set
+line_extraction/data_set*
 line_extraction/water_imgs*
 line_extraction/lines*
 line_extraction/compressed_lines*

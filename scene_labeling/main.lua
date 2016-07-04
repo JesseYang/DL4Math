@@ -21,7 +21,7 @@ criterion = use_cuda and nn.ClassNLLCriterion():cuda() or nn.ClassNLLCriterion()
 
 -- Prepare the data
 -- load_training_data()
-load_test_data()
+-- load_test_data()
 
 function plotTrainResult(img_idx, show_pixel_err)
 	ori_imgs_type = ori_imgs_train
@@ -272,3 +272,8 @@ function load_model_for_test(model_idx)
 end
 
 -- train_epoch(30)
+load_model_for_test("target")
+m = m:cuda()
+
+load_test_data_for_predict()
+output_pred_on_test_set()

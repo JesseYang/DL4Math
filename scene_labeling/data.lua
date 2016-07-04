@@ -1,3 +1,7 @@
+local cv = require 'cv'
+require 'cv.imgproc'
+require 'cv.imgcodecs'
+require 'cv.highgui'
 require 'torch'
 require 'util'
 require 'image'
@@ -9,6 +13,9 @@ mean_file = assert(io.open("models/mean", "r"))
 train_mean = tonumber(mean_file:read())
 
 function output_pred_on_test_set()
+	if (colors == nil) then
+		load_color_config()
+	end
 	-- use the model to predict the output of the test images, and save for the usage of the line extraction app
 	for img_idx = 1, table.getn(imgs_test) do
 		local img = imgs_test[img_idx]
@@ -28,6 +35,11 @@ function output_pred_on_test_set()
 						img:sub(1, 1, y - (length-1)/2, y + (length-1)/2, x - (length-1)/2, x + (length-1)/2)
 					score = m:forward(i)
 					local m_t, m_i = torch.max(score, 1)
+
+					for c = 1,3 do
+						result[c][y][x] = colors[m_i[1]][c]
+					end
+
 					label_file:write(string.char(m_i[1]))
 				else
 					label_file:write(string.char(0))
@@ -36,7 +48,57 @@ function output_pred_on_test_set()
 		end
 		label_file:flush()
 		label_file:close()
+		-- image.display(result, 3)
 	end
+end
+
+function load_test_data_for_predict()
+	local imgs_test_idx = 1
+
+	local imgs_count = 0
+	for img_filename in lfs.dir("for_predict") do
+		if (img_filename ~= "." and img_filename ~= "..") then
+			imgs_count = imgs_count + 1
+		end
+	end
+	print("Loading data set for predict (" .. imgs_count .. " images)")
+
+	imgs_test = { }
+	ori_imgs_test = { }
+	test_imgs_prefix = { }
+
+	for img_filename in lfs.dir("for_predict") do
+		if (img_filename ~= "." and img_filename ~= "..") then
+			temp_idx = string.find(img_filename, ".jpg")
+			filename_prefix = img_filename:sub(1, temp_idx - 1)
+			image_file = cv.imread { "for_predict/" .. img_filename, cv.IMREAD_GRAYSCALE }
+			cv.threshold{image_file, image_file, 10, 255, cv.THRESH_BINARY}
+			height = image_file:size()[1] + pad * 2
+			width = image_file:size()[2] + pad * 2
+			ori_img = torch.ByteTensor(1, height, width):fill(255)
+
+			for x = 1 + pad, width - pad do
+				for y = 1 + pad, height - pad do
+					ori_img[1][y][x] = image_file[y - pad][x - pad]
+				end
+			end
+
+			local img = ori_img:clone():float() - train_mean
+
+			imgs_test[imgs_test_idx] = img
+			ori_imgs_test[imgs_test_idx] = ori_img
+			test_imgs_prefix[imgs_test_idx] = filename_prefix
+
+			if (imgs_test_idx % 10 == 0) then
+				print(imgs_test_idx .. " images loaded")
+			end
+
+			imgs_test_idx = imgs_test_idx + 1
+
+		end
+	end
+
+	print("Finish loading data set for predict.")
 end
 
 function load_data()

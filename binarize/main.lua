@@ -32,3 +32,14 @@ function binarize(im_gray)
 	local im_bw = cv.adaptiveThreshold{im_gray, im_bw, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 11, 21}
 	return im_bw
 end
+
+function rename()
+	for img_file in lfs.dir("raw_data") do
+		if (img_file ~= "." and img_file ~= "..") then
+			local img = cv.imread { "raw_data/" .. img_file, cv.IMREAD_GRAYSCALE }
+			img_file = string.sub(img_file, 8)
+			print("1" .. img_file)
+			cv.imwrite { "150dpi/1" .. img_file, img }
+		end
+	end
+end

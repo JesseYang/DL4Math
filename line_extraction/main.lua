@@ -102,20 +102,33 @@ function line_extraction_2(im_bw, filename)
 	return im_for_label
 end
 
-function load_label_img(label_filename)
+function load_label_img(label_filename, use_real_image)
 	local pad = 10
-	local image_filename = filename_prefix .. "_gray.dat"
-	local spec_filename = filename_prefix .. ".txt"
 
-	local label_file = assert(io.open("data_set/labels/" .. label_filename, "r"))
-	local image_file = assert(io.open("data_set/images/" .. image_filename, "r"))
-	local spec_file = assert(io.open("data_set/specs/" .. spec_filename, "r"))
+	-- image_filename, spec_filename, label_file, image_file, width, height, ori_img
+
+	if (use_real_image == false) then
+		image_filename = filename_prefix .. "_gray.dat"
+		spec_filename = filename_prefix .. ".txt"
+
+		label_file = assert(io.open("data_set/labels/" .. label_filename, "r"))
+		image_file = assert(io.open("data_set/images/" .. image_filename, "r"))
+		local spec_file = assert(io.open("data_set/specs/" .. spec_filename, "r"))
 
 
-	local spec = spec_file:read()
-	local spec_ary = mysplit(spec, ",")
-	local width = spec_ary[1] + pad * 2
-	local height = spec_ary[2] + pad * 2
+		local spec = spec_file:read()
+		local spec_ary = mysplit(spec, ",")
+		width = spec_ary[1] + pad * 2
+		height = spec_ary[2] + pad * 2
+	end
+	if (use_real_image == true) then
+		image_filename = filename_prefix .. ".jpg"
+
+		label_file = assert(io.open("data_set/labels/" .. label_filename, "r"))
+		raw_img = cv.imread  { "data_set/images/" .. image_filename, cv.IMREAD_GRAYSCALE }
+		width = raw_img:size()[2] + pad * 2
+		height = raw_img:size()[1] + pad * 2
+	end
 	ori_img = torch.ByteTensor(height, width):fill(255)
 	equal_top_img = torch.ByteTensor(height, width):fill(255)
 	equal_bottom_img = torch.ByteTensor(height, width):fill(255)
@@ -123,8 +136,13 @@ function load_label_img(label_filename)
 	other_img = torch.ByteTensor(height, width):fill(255)
 	for x = 1 + pad, width - pad do
 		for y = 1 + pad, height - pad do
-			local label = tonumber(string.byte(label_file:read(1)))
-			ori_img[y][x] = tonumber(string.byte(image_file:read(1)))
+			label = tonumber(string.byte(label_file:read(1)))
+			if (use_real_image == false) then
+				ori_img[y][x] = tonumber(string.byte(image_file:read(1)))
+			end
+			if (use_real_image == true) then
+				ori_img[y][x] = raw_img[y - pad][x - pad]
+			end
 			if (label == 1) then
 				other_img[y][x] = 0
 			end
@@ -280,7 +298,12 @@ function main()
 			filename_prefix = label_filename:sub(1, temp_idx)
 
 			-- the input of one image includes { original image, top equal sub-image, bottom equal sub-image, fraction sub-image }
-			load_label_img(label_filename)
+			load_label_img(label_filename, true)
+
+			e = cv.getStructuringElement { shape = cv.MORPH_RECT, ksize = {5, 1} }
+			fraction_img = cv.dilate { src = fraction_img, dst = nil, kernel = e, anchor = { -1, -1}, borderValue = {255, 255, 255, 255} }
+			equal_top_img = cv.dilate { src = equal_top_img, dst = nil, kernel = e, anchor = { -1, -1}, borderValue = {255, 255, 255, 255} }
+			equal_bottom_img = cv.dilate { src = equal_bottom_img, dst = nil, kernel = e, anchor = { -1, -1}, borderValue = {255, 255, 255, 255} }
 
 			-- dilate on the equal_top_img
 			e = cv.getStructuringElement{shape=cv.MORPH_RECT, ksize={1, equal_dilate_size}}
@@ -399,17 +422,19 @@ function main()
 				end
 				final_lines[c] = torch.ByteTensor(temp:size()):fill(255) - torch.ne(temp, 0) * 255
 				local rect = cv.boundingRect{temp}
-				final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
-				final_lines_local[c] = m:forward(final_lines_local[c])
-				final_line_locations[c] = rect
-				-- cv.imshow{"final_line", final_lines_local[c]}
-				-- cv.waitKey {0}
-				lfs.mkdir("lines/" .. filename_prefix)
-				cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
-				cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. "_compress.jpg", compress_line(final_lines_local[c]) }
+				if (rect.width > 1 and rect.height > 1) then
+					final_lines_local[c] = final_lines[c]:sub(rect.y + 1, rect.y + rect.height - 1, rect.x + 1, rect.x + rect.width - 1)
+					final_lines_local[c] = m:forward(final_lines_local[c])
+					final_line_locations[c] = rect
+					-- cv.imshow{"final_line", final_lines_local[c]}
+					-- cv.waitKey {0}
+					lfs.mkdir("lines/" .. filename_prefix)
+					cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. ".jpg", final_lines_local[c] }
+					cv.imwrite { "lines/" .. filename_prefix .. "/" .. c .. "_compress.jpg", compress_line(final_lines_local[c]) }
 
-				-- separate line into segments
-				segments_extraction(final_lines_local[c], c)
+					-- separate line into segments
+					segments_extraction(final_lines_local[c], c)
+				end
 			end
 		end
 	end
